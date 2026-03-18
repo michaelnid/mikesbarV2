@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-}"
+DEFAULT_REPO_URL="https://github.com/michaelnid/mikesbarV2"
+REPO_URL="${REPO_URL:-$DEFAULT_REPO_URL}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 TMP_DIR=""
 
@@ -34,10 +35,6 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
-
-if [ -z "$REPO_URL" ]; then
-    read -r -p "Oeffentliche GitHub-Repository-URL: " REPO_URL
-fi
 
 [ -n "$REPO_URL" ] || { printf '[ERROR] Repository-URL fehlt.\n' >&2; exit 1; }
 
