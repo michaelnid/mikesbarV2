@@ -211,29 +211,29 @@ ensure_nodesource_repo() {
 }
 
 ensure_microsoft_repo() {
-    if [ ! -f /etc/apt/sources.list.d/microsoft-prod.list ]; then
-        mkdir -p /etc/apt/keyrings
-        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-            | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+    local package_url=""
+    local temp_deb=""
 
-        load_os_release
+    load_os_release
 
-        case "${ID:-}" in
-            ubuntu)
-                printf 'deb [arch=%s signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/%s/prod %s main\n' \
-                    "$(dpkg --print-architecture)" "$VERSION_ID" "${VERSION_CODENAME:-stable}" \
-                    >/etc/apt/sources.list.d/microsoft-prod.list
-                ;;
-            debian)
-                printf 'deb [arch=%s signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/%s/prod %s main\n' \
-                    "$(dpkg --print-architecture)" "$VERSION_ID" "${VERSION_CODENAME:-stable}" \
-                    >/etc/apt/sources.list.d/microsoft-prod.list
-                ;;
-            *)
-                die "Nicht unterstuetzte Distribution fuer Microsoft/.NET-Repository: ${ID:-unbekannt}"
-                ;;
-        esac
-    fi
+    case "${ID:-}" in
+        ubuntu)
+            package_url="https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb"
+            ;;
+        debian)
+            package_url="https://packages.microsoft.com/config/debian/${VERSION_ID}/packages-microsoft-prod.deb"
+            ;;
+        *)
+            die "Nicht unterstuetzte Distribution fuer Microsoft/.NET-Repository: ${ID:-unbekannt}"
+            ;;
+    esac
+
+    rm -f /etc/apt/sources.list.d/microsoft-prod.list
+
+    temp_deb="$(mktemp /tmp/packages-microsoft-prod-XXXXXX.deb)"
+    curl -fsSL "$package_url" -o "$temp_deb"
+    dpkg -i "$temp_deb"
+    rm -f "$temp_deb"
 }
 
 ensure_runtime_packages() {
