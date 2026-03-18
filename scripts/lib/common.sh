@@ -77,6 +77,18 @@ is_ipv4() {
     [[ "${1:-}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]
 }
 
+read_interactive() {
+    local __resultvar="$1"
+    shift
+
+    if [ -r /dev/tty ]; then
+        IFS= read "$@" "$__resultvar" < /dev/tty
+        return $?
+    fi
+
+    IFS= read "$@" "$__resultvar"
+}
+
 prompt_value() {
     local prompt_text="$1"
     local default_value="${2:-}"
@@ -85,10 +97,14 @@ prompt_value() {
 
     while true; do
         if [ -n "$default_value" ]; then
-            read -r -p "${prompt_text} [${default_value}]: " result
+            if ! read_interactive result -r -p "${prompt_text} [${default_value}]: "; then
+                die "Keine interaktive Eingabe verfuegbar. Bitte Werte per Parameter oder Umgebungsvariable setzen."
+            fi
             result="${result:-$default_value}"
         else
-            read -r -p "${prompt_text}: " result
+            if ! read_interactive result -r -p "${prompt_text}: "; then
+                die "Keine interaktive Eingabe verfuegbar. Bitte Werte per Parameter oder Umgebungsvariable setzen."
+            fi
         fi
 
         result="$(trim "$result")"
@@ -108,11 +124,15 @@ prompt_secret() {
     local confirmation=""
 
     while true; do
-        read -r -s -p "${prompt_text}: " result
+        if ! read_interactive result -r -s -p "${prompt_text}: "; then
+            die "Keine interaktive Eingabe verfuegbar. Bitte Werte per Parameter oder Umgebungsvariable setzen."
+        fi
         printf '\n'
         [ -n "$result" ] || { log_warn "Eingabe darf nicht leer sein."; continue; }
 
-        read -r -s -p "${prompt_text} bestaetigen: " confirmation
+        if ! read_interactive confirmation -r -s -p "${prompt_text} bestaetigen: "; then
+            die "Keine interaktive Eingabe verfuegbar. Bitte Werte per Parameter oder Umgebungsvariable setzen."
+        fi
         printf '\n'
 
         if [ "$result" = "$confirmation" ]; then
@@ -130,7 +150,9 @@ prompt_yes_no() {
     local answer=""
 
     while true; do
-        read -r -p "${prompt_text} [y/N]: " answer
+        if ! read_interactive answer -r -p "${prompt_text} [y/N]: "; then
+            die "Keine interaktive Eingabe verfuegbar. Bitte Werte per Parameter oder Umgebungsvariable setzen."
+        fi
         answer="${answer:-$default_value}"
         case "${answer,,}" in
             y|yes|j|ja) return 0 ;;
