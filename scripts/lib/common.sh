@@ -318,15 +318,15 @@ git_sync_repo() {
     if [ ! -d "$APP_ROOT/.git" ]; then
         rm -rf "$APP_ROOT"
         mkdir -p "$(dirname "$APP_ROOT")"
-        git clone --branch "$branch" --depth 1 "$repo_url" "$APP_ROOT"
+        su -s /bin/bash -c "git clone --branch '$branch' --depth 1 '$repo_url' '$APP_ROOT'" "$APP_USER"
         chown -R "$APP_USER:$APP_GROUP" "$APP_ROOT"
         return 0
     fi
 
-    git -C "$APP_ROOT" remote set-url origin "$repo_url"
-    git -C "$APP_ROOT" fetch --prune origin "$branch"
-    git -C "$APP_ROOT" checkout "$branch"
-    git -C "$APP_ROOT" pull --ff-only origin "$branch"
+    su -s /bin/bash -c "git -C '$APP_ROOT' remote set-url origin '$repo_url'" "$APP_USER"
+    su -s /bin/bash -c "git -C '$APP_ROOT' fetch --prune origin '$branch'" "$APP_USER"
+    su -s /bin/bash -c "git -C '$APP_ROOT' checkout '$branch'" "$APP_USER"
+    su -s /bin/bash -c "git -C '$APP_ROOT' pull --ff-only origin '$branch'" "$APP_USER"
     chown -R "$APP_USER:$APP_GROUP" "$APP_ROOT"
 }
 
