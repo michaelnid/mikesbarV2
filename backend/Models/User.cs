@@ -56,6 +56,12 @@ public class User
     [Column("has_fotobox_access")]
     public bool HasFotoboxAccess { get; set; } = false;
 
+    [Column("show_dealer_tile")]
+    public bool ShowDealerTile { get; set; } = true;
+
+    [Column("show_admin_tile")]
+    public bool ShowAdminTile { get; set; } = true;
+
     [NotMapped]
     public string[] PermissionGroups => GetPermissions().ToArray();
 

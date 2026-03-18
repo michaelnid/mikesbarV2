@@ -48,6 +48,8 @@ public class AdminController : ControllerBase
             Balance = 10000m,  // Festes Startguthaben
             Role = permissions.Contains("ADMIN") ? "ADMIN" : "USER",
             Permissions = string.Join(',', permissions),
+            ShowDealerTile = permissions.Contains("DEALER") && (dto.ShowDealerTile ?? true),
+            ShowAdminTile = permissions.Contains("ADMIN") && (dto.ShowAdminTile ?? true),
             QrCodeUuid = Guid.NewGuid(),
             CreatedAt = DateTime.UtcNow
         };
@@ -117,11 +119,23 @@ public class AdminController : ControllerBase
             user.HasFotoboxAccess = dto.HasFotoboxAccess.Value;
         }
 
+        if (dto.ShowDealerTile.HasValue)
+        {
+            user.ShowDealerTile = dto.ShowDealerTile.Value;
+        }
+
+        if (dto.ShowAdminTile.HasValue)
+        {
+            user.ShowAdminTile = dto.ShowAdminTile.Value;
+        }
+
         if (dto.PermissionGroups is not null)
         {
             var permissions = NormalizePermissions(dto.PermissionGroups);
             user.Permissions = string.Join(',', permissions);
             user.Role = permissions.Contains("ADMIN") ? "ADMIN" : "USER";
+            user.ShowDealerTile = permissions.Contains("DEALER") && (dto.ShowDealerTile ?? user.ShowDealerTile);
+            user.ShowAdminTile = permissions.Contains("ADMIN") && (dto.ShowAdminTile ?? user.ShowAdminTile);
 
             var dealerProfile = await _context.Dealers.FirstOrDefaultAsync(d => d.UserId == user.Id);
             if (dealerProfile != null)
@@ -289,6 +303,8 @@ public class CreateUserDto
     public string Username { get; set; }
     public string Pin { get; set; }
     public string[]? PermissionGroups { get; set; }
+    public bool? ShowDealerTile { get; set; }
+    public bool? ShowAdminTile { get; set; }
 }
 
 public class UpdateUserDto
@@ -298,6 +314,8 @@ public class UpdateUserDto
     public decimal? Balance { get; set; }
     public bool? HasFotoboxAccess { get; set; }
     public string[]? PermissionGroups { get; set; }
+    public bool? ShowDealerTile { get; set; }
+    public bool? ShowAdminTile { get; set; }
 }
 
 public class CreateDealerDto

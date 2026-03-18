@@ -694,7 +694,21 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
     const [pin, setPin] = useState('');
     const [hasDealerAccess, setHasDealerAccess] = useState(false);
     const [hasAdminAccess, setHasAdminAccess] = useState(false);
+    const [showDealerTile, setShowDealerTile] = useState(true);
+    const [showAdminTile, setShowAdminTile] = useState(true);
     const token = localStorage.getItem('token');
+
+    const handleDealerAccessToggle = () => {
+        const nextValue = !hasDealerAccess;
+        setHasDealerAccess(nextValue);
+        setShowDealerTile(nextValue);
+    };
+
+    const handleAdminAccessToggle = () => {
+        const nextValue = !hasAdminAccess;
+        setHasAdminAccess(nextValue);
+        setShowAdminTile(nextValue);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -702,7 +716,10 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
             const permissionGroups = ['PLAYER'];
             if (hasDealerAccess) permissionGroups.push('DEALER');
             if (hasAdminAccess) permissionGroups.push('ADMIN');
-            await api.createUser(token, username, pin, permissionGroups);
+            await api.createUser(token, username, pin, permissionGroups, {
+                showDealerTile: hasDealerAccess ? showDealerTile : false,
+                showAdminTile: hasAdminAccess ? showAdminTile : false
+            });
             alert('User angelegt! (Startguthaben: 10.000€)');
             onSuccess();
         } catch (err) {
@@ -727,8 +744,10 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
                     <Input label="PIN (4-8 Stellen)" value={pin} onChange={setPin} />
 
                     <div className="space-y-3">
-                        <PermissionToggle label="Dealer Zugriff" active={hasDealerAccess} onToggle={() => setHasDealerAccess(!hasDealerAccess)} />
-                        <PermissionToggle label="Admin Zugriff" active={hasAdminAccess} onToggle={() => setHasAdminAccess(!hasAdminAccess)} />
+                        <PermissionToggle label="Dealer Zugriff" active={hasDealerAccess} onToggle={handleDealerAccessToggle} />
+                        <PermissionToggle label="Dealer-Kachel sichtbar" active={showDealerTile} onToggle={() => setShowDealerTile(!showDealerTile)} disabled={!hasDealerAccess} description="Bei Deaktivierung bleibt der Zugriff nur per URL möglich." />
+                        <PermissionToggle label="Admin Zugriff" active={hasAdminAccess} onToggle={handleAdminAccessToggle} />
+                        <PermissionToggle label="Admin-Kachel sichtbar" active={showAdminTile} onToggle={() => setShowAdminTile(!showAdminTile)} disabled={!hasAdminAccess} description="Bei Deaktivierung bleibt der Zugriff nur per URL möglich." />
                     </div>
 
                     <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
@@ -789,6 +808,20 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const initialPermissions = getUserPermissions(user);
     const [hasDealerAccess, setHasDealerAccess] = useState(initialPermissions.includes('DEALER'));
     const [hasAdminAccess, setHasAdminAccess] = useState(initialPermissions.includes('ADMIN'));
+    const [showDealerTile, setShowDealerTile] = useState(user.showDealerTile ?? initialPermissions.includes('DEALER'));
+    const [showAdminTile, setShowAdminTile] = useState(user.showAdminTile ?? initialPermissions.includes('ADMIN'));
+
+    const handleDealerAccessToggle = () => {
+        const nextValue = !hasDealerAccess;
+        setHasDealerAccess(nextValue);
+        setShowDealerTile(nextValue);
+    };
+
+    const handleAdminAccessToggle = () => {
+        const nextValue = !hasAdminAccess;
+        setHasAdminAccess(nextValue);
+        setShowAdminTile(nextValue);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -801,7 +834,9 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 balance: Number(balance),
                 pin: pin || undefined,
                 hasFotoboxAccess,
-                permissionGroups
+                permissionGroups,
+                showDealerTile: hasDealerAccess ? showDealerTile : false,
+                showAdminTile: hasAdminAccess ? showAdminTile : false
             });
             onSuccess();
         } catch (err) {
@@ -822,8 +857,10 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                     <Input label="Guthaben [€]" value={balance} onChange={setBalance} type="number" />
 
                     <div className="space-y-3">
-                        <PermissionToggle label="Dealer Zugriff" active={hasDealerAccess} onToggle={() => setHasDealerAccess(!hasDealerAccess)} />
-                        <PermissionToggle label="Admin Zugriff" active={hasAdminAccess} onToggle={() => setHasAdminAccess(!hasAdminAccess)} />
+                        <PermissionToggle label="Dealer Zugriff" active={hasDealerAccess} onToggle={handleDealerAccessToggle} />
+                        <PermissionToggle label="Dealer-Kachel sichtbar" active={showDealerTile} onToggle={() => setShowDealerTile(!showDealerTile)} disabled={!hasDealerAccess} description="Bei Deaktivierung bleibt Dealer nur per URL erreichbar." />
+                        <PermissionToggle label="Admin Zugriff" active={hasAdminAccess} onToggle={handleAdminAccessToggle} />
+                        <PermissionToggle label="Admin-Kachel sichtbar" active={showAdminTile} onToggle={() => setShowAdminTile(!showAdminTile)} disabled={!hasAdminAccess} description="Bei Deaktivierung bleibt Admin nur per URL erreichbar." />
                     </div>
 
                     {/* Fotobox Access Toggle */}
@@ -874,13 +911,17 @@ const QrCodeModal = ({ user, onClose }) => (
     </div>
 );
 
-const PermissionToggle = ({ label, active, onToggle }) => (
-    <div className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5">
-        <div className="text-sm text-neutral-300">{label}</div>
+const PermissionToggle = ({ label, active, onToggle, description, disabled = false }) => (
+    <div className={`flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5 ${disabled ? 'opacity-50' : ''}`}>
+        <div>
+            <div className="text-sm text-neutral-300">{label}</div>
+            {description ? <div className="text-xs text-neutral-500 mt-1">{description}</div> : null}
+        </div>
         <button
             type="button"
             onClick={onToggle}
-            className={`relative w-12 h-6 rounded-full transition-colors ${active ? 'bg-green-500' : 'bg-neutral-800'}`}
+            disabled={disabled}
+            className={`relative w-12 h-6 rounded-full transition-colors disabled:cursor-not-allowed ${active ? 'bg-green-500' : 'bg-neutral-800'}`}
         >
             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${active ? 'translate-x-7' : 'translate-x-1'}`} />
         </button>

@@ -175,14 +175,14 @@ export const api = {
         return await response.json();
     },
 
-    createUser: async (token, username, pin, permissionGroups = ['PLAYER']) => {
+    createUser: async (token, username, pin, permissionGroups = ['PLAYER'], options = {}) => {
         const response = await request(`${API_BASE_URL}/admin/users`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ username, pin, permissionGroups }),
+            body: JSON.stringify({ username, pin, permissionGroups, ...options }),
         });
         if (!response.ok) throw new Error('Failed to create user');
         return await response.json();

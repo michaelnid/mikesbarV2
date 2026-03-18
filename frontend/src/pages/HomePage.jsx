@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, API_BASE_URL } from '../services/api';
 import logoWhite from '../assets/mikesbar-logo-white.png';
 import { DEFAULT_AVATAR_URL } from '../constants/assets';
-import { hasPermission } from '../utils/permissions';
+import { canSeeAdminTile, canSeeDealerTile, canSeeManagementTile } from '../utils/permissions';
 
 export default function HomePage() {
     const navigate = useNavigate();
@@ -11,6 +11,16 @@ export default function HomePage() {
     const token = localStorage.getItem('token');
     const [user, setUser] = useState(storedUser);
     const [status, setStatus] = useState({ server: 'Checking...', database: 'Checking...' });
+    const dealerTileVisible = canSeeDealerTile(user);
+    const adminTileVisible = canSeeAdminTile(user);
+    const managementTileVisible = canSeeManagementTile(user);
+
+    let managementDescription = 'Dealer Core und Admin-Dashboard';
+    if (adminTileVisible && !dealerTileVisible) {
+        managementDescription = 'Admin-Dashboard, Benutzer und Rechte';
+    } else if (dealerTileVisible && !adminTileVisible) {
+        managementDescription = 'Tische, Spieler-Sessions und Plugin-Auswahl';
+    }
 
     useEffect(() => {
         api.getHealth().then(setStatus);
@@ -103,35 +113,18 @@ export default function HomePage() {
                         </button>
                     )}
 
-                    {user && hasPermission(user, 'DEALER') && (
+                    {user && managementTileVisible && (
                         <button
-                            onClick={() => navigate('/dealer')}
+                            onClick={() => navigate('/verwaltung')}
                             className="glass-card rounded-2xl p-6 sm:p-8 cursor-pointer text-left active:scale-95 transition-transform w-full sm:w-[calc(50%-0.5rem)]"
                         >
                             <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 flex items-center justify-center shrink-0">
-                                    <span className="text-3xl">🃏</span>
-                                </div>
-                                <div>
-                                    <h3 className="text-lg sm:text-xl font-bold text-white">Dealer Core</h3>
-                                    <p className="text-sm text-neutral-400">Tische, Spieler-Sessions und Plugin-Auswahl</p>
-                                </div>
-                            </div>
-                        </button>
-                    )}
-
-                    {user && hasPermission(user, 'ADMIN') && (
-                        <button
-                            onClick={() => navigate('/admin/dashboard')}
-                            className="glass-card rounded-2xl p-6 sm:p-8 cursor-pointer text-left active:scale-95 transition-transform w-full sm:w-[calc(50%-0.5rem)]"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-700/10 flex items-center justify-center shrink-0">
+                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-emerald-500/20 via-blue-500/10 to-indigo-700/10 flex items-center justify-center shrink-0">
                                     <span className="text-3xl">🛠️</span>
                                 </div>
                                 <div>
-                                    <h3 className="text-lg sm:text-xl font-bold text-white">Admin</h3>
-                                    <p className="text-sm text-neutral-400">Benutzer, Rechte, Plugin-Freigaben und Übersicht</p>
+                                    <h3 className="text-lg sm:text-xl font-bold text-white">Verwaltung</h3>
+                                    <p className="text-sm text-neutral-400">{managementDescription}</p>
                                 </div>
                             </div>
                         </button>

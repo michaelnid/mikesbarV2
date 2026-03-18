@@ -65,6 +65,36 @@ SET @stmt = (
         EXISTS (
             SELECT 1
             FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'users' AND COLUMN_NAME = 'show_dealer_tile'
+        ),
+        'SELECT 1',
+        'ALTER TABLE users ADD COLUMN show_dealer_tile BOOLEAN NOT NULL DEFAULT TRUE'
+    )
+);
+PREPARE ensure_users_show_dealer_tile FROM @stmt;
+EXECUTE ensure_users_show_dealer_tile;
+DEALLOCATE PREPARE ensure_users_show_dealer_tile;
+
+SET @stmt = (
+    SELECT IF(
+        EXISTS (
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'users' AND COLUMN_NAME = 'show_admin_tile'
+        ),
+        'SELECT 1',
+        'ALTER TABLE users ADD COLUMN show_admin_tile BOOLEAN NOT NULL DEFAULT TRUE'
+    )
+);
+PREPARE ensure_users_show_admin_tile FROM @stmt;
+EXECUTE ensure_users_show_admin_tile;
+DEALLOCATE PREPARE ensure_users_show_admin_tile;
+
+SET @stmt = (
+    SELECT IF(
+        EXISTS (
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'dealers' AND COLUMN_NAME = 'current_game'
         ),
         'SELECT 1',

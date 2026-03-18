@@ -29,3 +29,12 @@ export const getUserPermissions = (user) => {
 
 export const hasPermission = (user, permission) =>
     getUserPermissions(user).includes(permission.toUpperCase());
+
+export const canSeeDealerTile = (user) =>
+    hasPermission(user, 'DEALER') && user?.showDealerTile !== false;
+
+export const canSeeAdminTile = (user) =>
+    hasPermission(user, 'ADMIN') && user?.showAdminTile !== false;
+
+export const canSeeManagementTile = (user) =>
+    canSeeDealerTile(user) || canSeeAdminTile(user);

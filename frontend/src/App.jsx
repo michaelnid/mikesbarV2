@@ -11,6 +11,7 @@ import TablePlayersPage from './pages/TablePlayersPage';
 import DealerBankPage from './pages/DealerBankPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminLoginPage from './pages/AdminLoginPage';
+import ManagementPage from './pages/ManagementPage';
 import SignagePage from './pages/SignagePage';
 import FotoboxPage from './pages/FotoboxPage';
 
@@ -32,6 +33,7 @@ function App() {
           <Route path="dealer/select-game" element={<GameSelectionPage />} />
           <Route path="dealer/players" element={<TablePlayersPage />} />
           <Route path="dealer/bank" element={<DealerBankPage />} />
+          <Route path="verwaltung" element={<ManagementPage />} />
           <Route path="fotobox" element={<FotoboxPage />} />
           <Route path="admin" element={<AdminLoginPage />} />
           <Route path="admin/dashboard" element={<AdminDashboard />} />
