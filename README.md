@@ -20,7 +20,7 @@ API-first Core-Framework fuer Benutzerverwaltung, Dealer-Tische, Statistiken und
 ## Befehle
 
 - Install One-Line:
-  `curl -fsSL https://raw.githubusercontent.com/<github-user>/<github-repo>/main/scripts/bootstrap-install.sh | sudo bash`
+  `curl -fsSL https://raw.githubusercontent.com/michaelnid/mikesbarV2/main/scripts/bootstrap-install.sh | sudo bash`
 - Update:
   `sudo mikesbar-update`
 - Deinstall:
