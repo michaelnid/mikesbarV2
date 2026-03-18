@@ -11,7 +11,7 @@ API-first Core-Framework fuer Benutzerverwaltung, Dealer-Tische, Statistiken und
 
 ## Mindestanforderungen
 
-- Betriebssystem: Ubuntu 24.04 LTS
+- Betriebssystem: Debian 12/13 oder Ubuntu 24.04 LTS
 - RAM: mindestens 2 GB
 - vCPU: mindestens 2
 - Speicherplatz: mindestens 10 GB

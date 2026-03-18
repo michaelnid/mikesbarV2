@@ -46,6 +46,12 @@ require_apt() {
     command -v apt-get >/dev/null 2>&1 || die "Dieses Setup unterstuetzt aktuell nur apt-basierte Linux-Systeme."
 }
 
+load_os_release() {
+    [ -f /etc/os-release ] || die "/etc/os-release wurde nicht gefunden."
+    # shellcheck disable=SC1091
+    . /etc/os-release
+}
+
 escape_shell_value() {
     printf '%q' "$1"
 }
@@ -191,7 +197,7 @@ random_alnum() {
 
 ensure_base_apt_packages() {
     apt-get update
-    apt-get install -y ca-certificates curl gnupg lsb-release apt-transport-https software-properties-common
+    apt-get install -y ca-certificates curl gnupg lsb-release
 }
 
 ensure_nodesource_repo() {
@@ -210,10 +216,23 @@ ensure_microsoft_repo() {
         curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
             | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
 
-        . /etc/os-release
-        printf 'deb [arch=%s signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/%s/prod %s main\n' \
-            "$(dpkg --print-architecture)" "$VERSION_ID" "$VERSION_CODENAME" \
-            >/etc/apt/sources.list.d/microsoft-prod.list
+        load_os_release
+
+        case "${ID:-}" in
+            ubuntu)
+                printf 'deb [arch=%s signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/ubuntu/%s/prod %s main\n' \
+                    "$(dpkg --print-architecture)" "$VERSION_ID" "${VERSION_CODENAME:-stable}" \
+                    >/etc/apt/sources.list.d/microsoft-prod.list
+                ;;
+            debian)
+                printf 'deb [arch=%s signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/%s/prod %s main\n' \
+                    "$(dpkg --print-architecture)" "$VERSION_ID" "${VERSION_CODENAME:-stable}" \
+                    >/etc/apt/sources.list.d/microsoft-prod.list
+                ;;
+            *)
+                die "Nicht unterstuetzte Distribution fuer Microsoft/.NET-Repository: ${ID:-unbekannt}"
+                ;;
+        esac
     fi
 }
 
