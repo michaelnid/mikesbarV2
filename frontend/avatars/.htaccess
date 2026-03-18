@@ -1,0 +1,21 @@
+# Avatar-Uploads - Zugriffsbeschränkung für PHP
+# Erlaubt CORS für alle Origins
+
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
+
+# Verhindere Ausführung von hochgeladenen PHP-Dateien als zusätzliche Sicherheit
+<FilesMatch "\.(jpg|jpeg|png|gif|webp)$">
+    <IfModule mod_headers.c>
+        Header set Content-Type "image/jpeg"
+    </IfModule>
+</FilesMatch>
+
+# Erlaube nur upload.php als PHP auszuführen
+<FilesMatch "^(?!upload\.php$).*\.php$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
