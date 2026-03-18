@@ -190,14 +190,24 @@ random_hex() {
     openssl rand -hex "$bytes"
 }
 
+random_from_charset() {
+    local length="$1"
+    local charset="$2"
+
+    (
+        set +o pipefail
+        LC_ALL=C tr -dc "$charset" </dev/urandom | head -c "$length"
+    )
+}
+
 random_alnum() {
     local length="${1:-32}"
-    tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$length"
+    random_from_charset "$length" 'A-Za-z0-9'
 }
 
 random_digits() {
     local length="${1:-6}"
-    tr -dc '0-9' </dev/urandom | head -c "$length"
+    random_from_charset "$length" '0-9'
 }
 
 ensure_base_apt_packages() {
