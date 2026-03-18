@@ -196,6 +196,8 @@ random_alnum() {
 }
 
 ensure_base_apt_packages() {
+    rm -f /etc/apt/sources.list.d/microsoft-prod.list
+    rm -f /etc/apt/sources.list.d/microsoft-prod.list.save
     apt-get update
     apt-get install -y ca-certificates curl gnupg lsb-release
 }
