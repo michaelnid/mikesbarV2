@@ -3,42 +3,36 @@ import { useNavigate } from 'react-router-dom';
 import { api, getDefaultApiBaseUrl } from '../services/api';
 
 export default function DealerLoginPage() {
+    const navigate = useNavigate();
+    const defaultApiUrl = getDefaultApiBaseUrl();
+    const [credentials, setCredentials] = useState('');
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
-
-    const handleLogin = async () => {
-        setLoading(true);
-        setError('');
-
-        try {
-            const data = await api.dealerLogin(pin);
-            // Store dealer token
-            localStorage.setItem('dealer_token', data.token);
-            localStorage.setItem('dealer', JSON.stringify(data.dealer));
-            navigate('/dealer/select-game');
-        } catch (err) {
-            setError(err.message);
-            setPin(''); // Reset PIN on error
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handlePinInput = (num) => {
-        if (pin.length < 6) {
-            setPin(prev => prev + num);
-        }
-    };
-
-    const defaultApiUrl = getDefaultApiBaseUrl();
     const [showSettings, setShowSettings] = useState(false);
     const [apiUrl, setApiUrl] = useState(localStorage.getItem('custom_api_url') || defaultApiUrl);
 
     const handleSaveSettings = () => {
         localStorage.setItem('custom_api_url', apiUrl);
         window.location.reload();
+    };
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        try {
+            const data = await api.dealerLogin(credentials, pin);
+            localStorage.setItem('dealer_token', data.token);
+            localStorage.setItem('dealer', JSON.stringify(data.dealer));
+            navigate('/dealer/select-game');
+        } catch (err) {
+            setError(err.message || 'Dealer Login fehlgeschlagen');
+            setPin('');
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (showSettings) {
@@ -65,7 +59,7 @@ export default function DealerLoginPage() {
     }
 
     return (
-        <div className="flex-1 flex flex-col p-6 bg-neutral-950 min-h-screen justify-center items-center w-full max-w-md mx-auto md:border-x md:border-neutral-800 md:shadow-2xl relative">
+        <div className="flex-1 flex flex-col min-h-screen bg-neutral-950 relative overflow-hidden">
             <button
                 onClick={() => setShowSettings(true)}
                 className="absolute top-4 right-4 p-2 text-neutral-600 hover:text-white"
@@ -76,57 +70,49 @@ export default function DealerLoginPage() {
                 </svg>
             </button>
 
-            <div className="w-full max-w-sm space-y-8">
-                <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold text-yellow-500">Dealer Login</h1>
-                    <p className="text-neutral-500">Mitarbeiter Authentifizierung</p>
-                </div>
+            <div className="flex-1 flex items-center justify-center p-6">
+                <form onSubmit={handleLogin} className="w-full max-w-md bg-neutral-950 border border-neutral-800 rounded-3xl p-8 space-y-6 shadow-2xl">
+                    <div className="space-y-2 text-center">
+                        <h1 className="text-3xl font-bold text-yellow-500">Dealer Login</h1>
+                        <p className="text-neutral-500">Mit demselben Benutzerkonto wie im Spielerbereich</p>
+                    </div>
 
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 text-center text-3xl tracking-[1em] h-20 flex items-center justify-center font-bold text-white shadow-inner">
-                    {pin.replace(/./g, '•')}
-                </div>
+                    <div className="space-y-2">
+                        <label className="text-neutral-400 text-sm">Benutzername oder ID</label>
+                        <input
+                            value={credentials}
+                            onChange={(e) => setCredentials(e.target.value)}
+                            className="w-full bg-neutral-900 border border-neutral-800 p-4 rounded-xl text-white"
+                            autoComplete="username"
+                        />
+                    </div>
 
-                {/* PIN Pad */}
-                <div className="grid grid-cols-3 gap-3">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                        <button
-                            key={num}
-                            type="button"
-                            onClick={() => handlePinInput(num)}
-                            className="bg-neutral-800 p-6 rounded-xl text-2xl font-bold hover:bg-neutral-700 active:bg-neutral-600 transition-colors shadow-lg"
-                        >
-                            {num}
-                        </button>
-                    ))}
+                    <div className="space-y-2">
+                        <label className="text-neutral-400 text-sm">PIN</label>
+                        <input
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                            className="w-full bg-neutral-900 border border-neutral-800 p-4 rounded-xl text-white"
+                            type="password"
+                            inputMode="numeric"
+                            autoComplete="current-password"
+                        />
+                    </div>
+
+                    {error && <div className="text-red-500 text-center font-bold">{error}</div>}
+
                     <button
-                        type="button"
-                        onClick={() => setPin('')}
-                        className="bg-red-900/20 text-red-500 p-6 rounded-xl text-xl font-bold hover:bg-red-900/40"
+                        type="submit"
+                        disabled={loading || !credentials || !pin}
+                        className="w-full py-4 bg-green-600 rounded-xl text-white font-bold hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        C
+                        {loading ? 'Anmeldung...' : 'Dealer Bereich öffnen'}
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => handlePinInput(0)}
-                        className="bg-neutral-800 p-6 rounded-xl text-2xl font-bold hover:bg-neutral-700"
-                    >
-                        0
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleLogin}
-                        disabled={loading || pin.length < 1}
-                        className="bg-green-600 text-white p-6 rounded-xl text-2xl font-bold hover:bg-green-500 disabled:opacity-50 disabled:bg-neutral-800"
-                    >
-                        ➜
-                    </button>
-                </div>
 
-                {error && <div className="text-red-500 text-center font-bold animate-pulse">{error}</div>}
-
-                <button onClick={() => navigate('/')} className="w-full text-neutral-600 hover:text-white mt-8 text-sm">
-                    Zurück zum Hauptmenü
-                </button>
+                    <button onClick={() => navigate('/')} type="button" className="w-full text-neutral-600 hover:text-white text-sm">
+                        Zurück zum Hauptmenü
+                    </button>
+                </form>
             </div>
         </div>
     );

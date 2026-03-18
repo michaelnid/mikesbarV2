@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, API_BASE_URL } from '../services/api';
 import logoWhite from '../assets/mikesbar-logo-white.png';
 import { DEFAULT_AVATAR_URL } from '../constants/assets';
+import { hasPermission } from '../utils/permissions';
 
 export default function HomePage() {
     const navigate = useNavigate();
@@ -102,35 +103,39 @@ export default function HomePage() {
                         </button>
                     )}
 
-                    <button
-                        onClick={() => navigate('/dealer')}
-                        className="glass-card rounded-2xl p-6 sm:p-8 cursor-pointer text-left active:scale-95 transition-transform w-full sm:w-[calc(50%-0.5rem)]"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 flex items-center justify-center shrink-0">
-                                <span className="text-3xl">🃏</span>
+                    {user && hasPermission(user, 'DEALER') && (
+                        <button
+                            onClick={() => navigate('/dealer')}
+                            className="glass-card rounded-2xl p-6 sm:p-8 cursor-pointer text-left active:scale-95 transition-transform w-full sm:w-[calc(50%-0.5rem)]"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 flex items-center justify-center shrink-0">
+                                    <span className="text-3xl">🃏</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg sm:text-xl font-bold text-white">Dealer Core</h3>
+                                    <p className="text-sm text-neutral-400">Tische, Spieler-Sessions und Plugin-Auswahl</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-white">Dealer Core</h3>
-                                <p className="text-sm text-neutral-400">Tische, Spieler-Sessions und Plugin-Auswahl</p>
-                            </div>
-                        </div>
-                    </button>
+                        </button>
+                    )}
 
-                    <button
-                        onClick={() => navigate('/admin')}
-                        className="glass-card rounded-2xl p-6 sm:p-8 cursor-pointer text-left active:scale-95 transition-transform w-full sm:w-[calc(50%-0.5rem)]"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-700/10 flex items-center justify-center shrink-0">
-                                <span className="text-3xl">🛠️</span>
+                    {user && hasPermission(user, 'ADMIN') && (
+                        <button
+                            onClick={() => navigate('/admin/dashboard')}
+                            className="glass-card rounded-2xl p-6 sm:p-8 cursor-pointer text-left active:scale-95 transition-transform w-full sm:w-[calc(50%-0.5rem)]"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-700/10 flex items-center justify-center shrink-0">
+                                    <span className="text-3xl">🛠️</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg sm:text-xl font-bold text-white">Admin</h3>
+                                    <p className="text-sm text-neutral-400">Benutzer, Rechte, Plugin-Freigaben und Übersicht</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-white">Admin</h3>
-                                <p className="text-sm text-neutral-400">Benutzer, Dealer, Plugin-Freigaben und Übersicht</p>
-                            </div>
-                        </div>
-                    </button>
+                        </button>
+                    )}
 
                     {user && (
                         <button

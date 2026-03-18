@@ -35,6 +35,21 @@ SET @stmt = (
         EXISTS (
             SELECT 1
             FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'users' AND COLUMN_NAME = 'permissions'
+        ),
+        'SELECT 1',
+        'ALTER TABLE users ADD COLUMN permissions VARCHAR(255) NOT NULL DEFAULT ''PLAYER'''
+    )
+);
+PREPARE ensure_users_permissions FROM @stmt;
+EXECUTE ensure_users_permissions;
+DEALLOCATE PREPARE ensure_users_permissions;
+
+SET @stmt = (
+    SELECT IF(
+        EXISTS (
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'users' AND COLUMN_NAME = 'has_fotobox_access'
         ),
         'SELECT 1',
@@ -89,6 +104,21 @@ SET @stmt = (
 PREPARE ensure_dealers_session_token FROM @stmt;
 EXECUTE ensure_dealers_session_token;
 DEALLOCATE PREPARE ensure_dealers_session_token;
+
+SET @stmt = (
+    SELECT IF(
+        EXISTS (
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'dealers' AND COLUMN_NAME = 'user_id'
+        ),
+        'SELECT 1',
+        'ALTER TABLE dealers ADD COLUMN user_id INT NULL'
+    )
+);
+PREPARE ensure_dealers_user_id FROM @stmt;
+EXECUTE ensure_dealers_user_id;
+DEALLOCATE PREPARE ensure_dealers_user_id;
 
 CREATE TABLE IF NOT EXISTS game_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -169,3 +199,25 @@ SET @stmt = (
 PREPARE ensure_idx_table_sessions_active FROM @stmt;
 EXECUTE ensure_idx_table_sessions_active;
 DEALLOCATE PREPARE ensure_idx_table_sessions_active;
+
+UPDATE users
+SET permissions = CASE
+    WHEN role = 'ADMIN' THEN 'PLAYER,ADMIN'
+    ELSE 'PLAYER'
+END
+WHERE permissions IS NULL OR permissions = '';
+
+SET @stmt = (
+    SELECT IF(
+        EXISTS (
+            SELECT 1
+            FROM INFORMATION_SCHEMA.STATISTICS
+            WHERE TABLE_SCHEMA = @dbname AND TABLE_NAME = 'dealers' AND INDEX_NAME = 'uq_dealers_user_id'
+        ),
+        'SELECT 1',
+        'CREATE UNIQUE INDEX uq_dealers_user_id ON dealers(user_id)'
+    )
+);
+PREPARE ensure_uq_dealers_user_id FROM @stmt;
+EXECUTE ensure_uq_dealers_user_id;
+DEALLOCATE PREPARE ensure_uq_dealers_user_id;

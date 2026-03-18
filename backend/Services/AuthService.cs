@@ -17,14 +17,19 @@ public class AuthService
 
     public string GenerateToken(User user)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.Role),
             new Claim("Avatar", user.AvatarUrl),
+            new Claim("actor_type", "user"),
             new Claim("session_token", user.SessionToken ?? "")
         };
+
+        foreach (var permission in user.GetPermissions())
+        {
+            claims.Add(new Claim(ClaimTypes.Role, permission));
+        }
 
         return GenerateToken(claims);
     }
@@ -36,6 +41,7 @@ public class AuthService
             new Claim(ClaimTypes.NameIdentifier, dealer.Id.ToString()),
             new Claim(ClaimTypes.Name, dealer.Name),
             new Claim(ClaimTypes.Role, "DEALER"),
+            new Claim("actor_type", "dealer_profile"),
             new Claim("session_token", dealer.SessionToken ?? "")
         };
         return GenerateToken(claims);

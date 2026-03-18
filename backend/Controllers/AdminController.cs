@@ -38,13 +38,16 @@ public class AdminController : ControllerBase
         if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
             return BadRequest("Username already exists");
 
+        var permissions = NormalizePermissions(dto.PermissionGroups);
+
         // Neue Spieler starten immer mit 5000€ - ohne Transaktion
         var user = new User
         {
             Username = dto.Username,
             PinHash = _authService.HashPin(dto.Pin),
             Balance = 10000m,  // Festes Startguthaben
-            Role = "USER",
+            Role = permissions.Contains("ADMIN") ? "ADMIN" : "USER",
+            Permissions = string.Join(',', permissions),
             QrCodeUuid = Guid.NewGuid(),
             CreatedAt = DateTime.UtcNow
         };
@@ -114,6 +117,24 @@ public class AdminController : ControllerBase
             user.HasFotoboxAccess = dto.HasFotoboxAccess.Value;
         }
 
+        if (dto.PermissionGroups is not null)
+        {
+            var permissions = NormalizePermissions(dto.PermissionGroups);
+            user.Permissions = string.Join(',', permissions);
+            user.Role = permissions.Contains("ADMIN") ? "ADMIN" : "USER";
+
+            var dealerProfile = await _context.Dealers.FirstOrDefaultAsync(d => d.UserId == user.Id);
+            if (dealerProfile != null)
+            {
+                dealerProfile.IsActive = permissions.Contains("DEALER") && user.IsActive;
+                dealerProfile.Name = user.Username;
+                if (!string.IsNullOrWhiteSpace(dto.Pin))
+                {
+                    dealerProfile.PinHash = user.PinHash;
+                }
+            }
+        }
+
         // 4. Update Balance (with Transaction)
         if (dto.Balance.HasValue && dto.Balance.Value != user.Balance)
         {
@@ -131,6 +152,14 @@ public class AdminController : ControllerBase
             
             // Update User Balance
             user.Balance = dto.Balance.Value;
+        }
+
+        var linkedDealerProfile = await _context.Dealers.FirstOrDefaultAsync(d => d.UserId == user.Id);
+        if (linkedDealerProfile != null)
+        {
+            linkedDealerProfile.Name = user.Username;
+            linkedDealerProfile.PinHash = user.PinHash;
+            linkedDealerProfile.IsActive = user.IsActive && user.HasPermission("DEALER");
         }
 
         await _context.SaveChangesAsync();
@@ -231,12 +260,35 @@ public class AdminController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+
+    private static string[] NormalizePermissions(IEnumerable<string>? requestedPermissions)
+    {
+        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "PLAYER"
+        };
+
+        if (requestedPermissions is not null)
+        {
+            foreach (var permission in requestedPermissions)
+            {
+                var normalized = permission?.Trim().ToUpperInvariant();
+                if (normalized is "DEALER" or "ADMIN" or "PLAYER")
+                {
+                    permissions.Add(normalized);
+                }
+            }
+        }
+
+        return permissions.OrderBy(permission => permission).ToArray();
+    }
 }
 
 public class CreateUserDto
 {
     public string Username { get; set; }
     public string Pin { get; set; }
+    public string[]? PermissionGroups { get; set; }
 }
 
 public class UpdateUserDto
@@ -245,6 +297,7 @@ public class UpdateUserDto
     public string? Pin { get; set; }
     public decimal? Balance { get; set; }
     public bool? HasFotoboxAccess { get; set; }
+    public string[]? PermissionGroups { get; set; }
 }
 
 public class CreateDealerDto

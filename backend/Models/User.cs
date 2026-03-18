@@ -34,6 +34,9 @@ public class User
     [Column("role")]
     public string Role { get; set; } = "USER";
 
+    [Column("permissions")]
+    public string Permissions { get; set; } = "PLAYER";
+
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
     
@@ -52,4 +55,52 @@ public class User
 
     [Column("has_fotobox_access")]
     public bool HasFotoboxAccess { get; set; } = false;
+
+    [NotMapped]
+    public string[] PermissionGroups => GetPermissions().ToArray();
+
+    public IReadOnlyCollection<string> GetPermissions()
+    {
+        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "PLAYER"
+        };
+
+        if (!string.IsNullOrWhiteSpace(Permissions))
+        {
+            foreach (var permission in Permissions.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                permissions.Add(permission.ToUpperInvariant());
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(Role))
+        {
+            var legacyRole = Role.ToUpperInvariant();
+            if (legacyRole == "ADMIN" || legacyRole == "DEALER")
+            {
+                permissions.Add(legacyRole);
+            }
+        }
+
+        return permissions.ToArray();
+    }
+
+    public bool HasPermission(string permission) =>
+        GetPermissions().Contains(permission.ToUpperInvariant(), StringComparer.OrdinalIgnoreCase);
+
+    public string GetPrimaryRole()
+    {
+        if (HasPermission("ADMIN"))
+        {
+            return "ADMIN";
+        }
+
+        if (HasPermission("DEALER"))
+        {
+            return "DEALER";
+        }
+
+        return "PLAYER";
+    }
 }

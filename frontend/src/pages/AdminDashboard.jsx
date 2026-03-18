@@ -11,10 +11,11 @@ import logoWhite from '../assets/mikesbar-logo-white.png';
 import * as signalR from '@microsoft/signalr';
 import QRScanner from '../components/QRScanner';
 import { DEFAULT_AVATAR_URL } from '../constants/assets';
+import { hasPermission, getUserPermissions } from '../utils/permissions';
 
 // --- Sub Components ---
 
-const Menu = ({ onSetView, onLoadUsers, onLoadDealers, onLoadGameSettings, onShowSslInfo, navigate }) => (
+const Menu = ({ onSetView, onLoadUsers, onLoadGameSettings, onShowSslInfo, navigate }) => (
     <div className="flex flex-col items-center justify-center w-full animate-fade-in-up">
         {/* Admin Header */}
         <div className="text-center mb-12 w-full max-w-2xl px-4">
@@ -50,17 +51,10 @@ const Menu = ({ onSetView, onLoadUsers, onLoadDealers, onLoadGameSettings, onSho
             />
             <MenuButton
                 icon="✏️"
-                label="User verwalten"
-                description="Profile bearbeiten & Guthaben"
+                label="User & Rechte"
+                description="Profile, Guthaben und Gruppen"
                 color="from-yellow-600/20 to-amber-600/10"
                 onClick={() => { onLoadUsers(); onSetView('editUser'); }}
-            />
-            <MenuButton
-                icon="🛠️"
-                label="Dealer verwalten"
-                description="Dealer-Accounts bearbeiten"
-                color="from-rose-600/20 to-pink-700/10"
-                onClick={() => { onLoadDealers(); onSetView('editDealer'); }}
             />
             <MenuButton
                 icon="🎮"
@@ -160,6 +154,13 @@ const UserListView = ({ users, mode = 'view', token, avatarKey, onSetAvatarKey, 
                                     <div className="font-bold text-lg text-white">{u.username}</div>
                                     <div className="text-sm text-yellow-500 font-mono font-bold">{u.balance.toLocaleString('de-DE', { minimumFractionDigits: 2 })} €</div>
                                     <div className="text-[10px] text-neutral-500 uppercase tracking-widest mt-1">ID: {u.id}</div>
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                        {getUserPermissions(u).map((permission) => (
+                                            <span key={permission} className="px-2 py-0.5 rounded-full bg-white/5 text-[10px] uppercase tracking-widest text-neutral-300">
+                                                {permission}
+                                            </span>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -418,14 +419,13 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         if (view === 'userList' || view === 'editUser') loadUsers();
-        if (view === 'editDealer') loadDealers();
         if (view === 'gameSettings') loadGameSettings();
     }, [view, token]); // Re-load if view or token changes
 
     useEffect(() => {
         // Basic auth check
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (!token || user.role !== 'ADMIN') {
+        if (!token || !hasPermission(user, 'ADMIN')) {
             navigate('/admin');
         }
 
@@ -532,7 +532,7 @@ export default function AdminDashboard() {
 
             {/* Scrollable Content */}
             <div className="relative z-10 flex-1 overflow-y-auto px-4 py-12 flex flex-col items-center">
-                {view === 'menu' && <Menu onSetView={setView} onLoadUsers={loadUsers} onLoadDealers={loadDealers} onLoadGameSettings={loadGameSettings} onShowSslInfo={handleShowSslInfo} navigate={navigate} />}
+                {view === 'menu' && <Menu onSetView={setView} onLoadUsers={loadUsers} onLoadGameSettings={loadGameSettings} onShowSslInfo={handleShowSslInfo} navigate={navigate} />}
                 {view === 'stats' && <StatsView token={token} refreshKey={statsRefreshKey} onSetView={setView} />}
                 {view === 'userList' && <UserListView users={users} mode="view" token={token} avatarKey={avatarKey} onSetAvatarKey={setAvatarKey} onLoadUsers={loadUsers} onSetView={setView} onSetConfirmData={setConfirmData} onSetEditingUser={setEditingUser} onSetShowQrFor={setShowQrFor} onSetShowHistoryFor={setShowHistoryFor} onSetShowScanner={setShowScanner} searchQuery={searchQuery} onSetSearchQuery={setSearchQuery} onSetShowCreateUser={setShowCreateUser} />}
                 {view === 'editUser' && <UserListView users={users} mode="edit" token={token} avatarKey={avatarKey} onSetAvatarKey={setAvatarKey} onLoadUsers={loadUsers} onSetView={setView} onSetConfirmData={setConfirmData} onSetEditingUser={setEditingUser} onSetShowQrFor={setShowQrFor} onSetShowHistoryFor={setShowHistoryFor} onSetShowScanner={setShowScanner} searchQuery={searchQuery} onSetSearchQuery={setSearchQuery} onSetShowCreateUser={setShowCreateUser} />}
@@ -692,12 +692,17 @@ const EditDealerModal = ({ dealer, onClose, onSuccess }) => {
 const CreateUserModal = ({ onClose, onSuccess }) => {
     const [username, setUsername] = useState('');
     const [pin, setPin] = useState('');
+    const [hasDealerAccess, setHasDealerAccess] = useState(false);
+    const [hasAdminAccess, setHasAdminAccess] = useState(false);
     const token = localStorage.getItem('token');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await api.createUser(token, username, pin);
+            const permissionGroups = ['PLAYER'];
+            if (hasDealerAccess) permissionGroups.push('DEALER');
+            if (hasAdminAccess) permissionGroups.push('ADMIN');
+            await api.createUser(token, username, pin, permissionGroups);
             alert('User angelegt! (Startguthaben: 10.000€)');
             onSuccess();
         } catch (err) {
@@ -720,6 +725,11 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
 
                     <Input label="Username" value={username} onChange={setUsername} />
                     <Input label="PIN (4-8 Stellen)" value={pin} onChange={setPin} />
+
+                    <div className="space-y-3">
+                        <PermissionToggle label="Dealer Zugriff" active={hasDealerAccess} onToggle={() => setHasDealerAccess(!hasDealerAccess)} />
+                        <PermissionToggle label="Admin Zugriff" active={hasAdminAccess} onToggle={() => setHasAdminAccess(!hasAdminAccess)} />
+                    </div>
 
                     <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
                         <p className="text-yellow-400 text-xs font-medium text-center">✨ Startguthaben: 10.000,00 €</p>
@@ -776,15 +786,22 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const [balance, setBalance] = useState(user.balance);
     const [pin, setPin] = useState('');
     const [hasFotoboxAccess, setHasFotoboxAccess] = useState(user.hasFotoboxAccess || false);
+    const initialPermissions = getUserPermissions(user);
+    const [hasDealerAccess, setHasDealerAccess] = useState(initialPermissions.includes('DEALER'));
+    const [hasAdminAccess, setHasAdminAccess] = useState(initialPermissions.includes('ADMIN'));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const permissionGroups = ['PLAYER'];
+            if (hasDealerAccess) permissionGroups.push('DEALER');
+            if (hasAdminAccess) permissionGroups.push('ADMIN');
             await api.updateUser(localStorage.getItem('token'), user.id, {
                 username,
                 balance: Number(balance),
                 pin: pin || undefined,
-                hasFotoboxAccess
+                hasFotoboxAccess,
+                permissionGroups
             });
             onSuccess();
         } catch (err) {
@@ -803,6 +820,11 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                     <Input label="Name" value={username} onChange={setUsername} />
                     <Input label="Neuer PIN (Optional)" value={pin} onChange={setPin} placeholder="4-8 Stellen oder leer lassen" />
                     <Input label="Guthaben [€]" value={balance} onChange={setBalance} type="number" />
+
+                    <div className="space-y-3">
+                        <PermissionToggle label="Dealer Zugriff" active={hasDealerAccess} onToggle={() => setHasDealerAccess(!hasDealerAccess)} />
+                        <PermissionToggle label="Admin Zugriff" active={hasAdminAccess} onToggle={() => setHasAdminAccess(!hasAdminAccess)} />
+                    </div>
 
                     {/* Fotobox Access Toggle */}
                     <div className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5">
@@ -849,6 +871,19 @@ const QrCodeModal = ({ user, onClose }) => (
                 Schließen
             </button>
         </div>
+    </div>
+);
+
+const PermissionToggle = ({ label, active, onToggle }) => (
+    <div className="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5">
+        <div className="text-sm text-neutral-300">{label}</div>
+        <button
+            type="button"
+            onClick={onToggle}
+            className={`relative w-12 h-6 rounded-full transition-colors ${active ? 'bg-green-500' : 'bg-neutral-800'}`}
+        >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${active ? 'translate-x-7' : 'translate-x-1'}`} />
+        </button>
     </div>
 );
 

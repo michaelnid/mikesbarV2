@@ -389,6 +389,7 @@ INSERT INTO users (
     avatar_url,
     qr_code_uuid,
     role,
+    permissions,
     is_active,
     created_at,
     updated_at,
@@ -401,6 +402,7 @@ INSERT INTO users (
     '/avatars/default.svg',
     UUID(),
     'ADMIN',
+    'PLAYER,ADMIN',
     TRUE,
     UTC_TIMESTAMP(),
     UTC_TIMESTAMP(),
@@ -410,6 +412,7 @@ INSERT INTO users (
 ON DUPLICATE KEY UPDATE
     pin_hash = VALUES(pin_hash),
     role = 'ADMIN',
+    permissions = 'PLAYER,ADMIN',
     is_active = TRUE,
     updated_at = UTC_TIMESTAMP();
 SQL

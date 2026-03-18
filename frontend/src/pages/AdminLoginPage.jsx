@@ -1,55 +1,43 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getDefaultApiBaseUrl } from '../services/api';
+import { hasPermission } from '../utils/permissions';
 
 export default function AdminLoginPage() {
     const navigate = useNavigate();
+    const defaultApiUrl = getDefaultApiBaseUrl();
+    const [credentials, setCredentials] = useState('');
     const [pin, setPin] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-
-    const handleDigitClick = (digit) => {
-        if (pin.length < 6) {
-            setPin(prev => prev + digit);
-        }
-    };
-
-    const handleClear = () => {
-        setPin('');
-        setError('');
-    };
-
-    const handleLogin = async () => {
-        if (!pin) return;
-        setLoading(true);
-        setError('');
-        try {
-            // Admin login: assume username 'admin' and validation via this PIN
-            const data = await api.login('admin', pin);
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-
-            if (data.user.role !== 'ADMIN') {
-                throw new Error('Kein Admin Access');
-            }
-
-            navigate('/admin/dashboard');
-        } catch (err) {
-            console.error(err);
-            setError('Falscher PIN');
-            setPin('');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const defaultApiUrl = getDefaultApiBaseUrl();
     const [showSettings, setShowSettings] = useState(false);
     const [apiUrl, setApiUrl] = useState(localStorage.getItem('custom_api_url') || defaultApiUrl);
 
     const handleSaveSettings = () => {
         localStorage.setItem('custom_api_url', apiUrl);
         window.location.reload();
+    };
+
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+
+        try {
+            const data = await api.login(credentials, pin);
+            if (!hasPermission(data.user, 'ADMIN')) {
+                throw new Error('Kein Admin-Zugang für dieses Konto');
+            }
+
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            navigate('/admin/dashboard');
+        } catch (err) {
+            setError(err.message || 'Admin Login fehlgeschlagen');
+            setPin('');
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (showSettings) {
@@ -87,51 +75,48 @@ export default function AdminLoginPage() {
                 </svg>
             </button>
 
-            <h1 className="text-3xl font-bold text-yellow-500 mb-8">Admin Login</h1>
-
-            <div className="w-full max-w-xs space-y-4">
-                {/* Display */}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-lg h-16 flex items-center justify-center text-3xl text-white tracking-[0.5em] mb-8 font-mono">
-                    {pin ? '•'.repeat(pin.length) : <span className="text-neutral-600 text-lg tracking-normal font-sans opacity-50">PIN</span>}
+            <form onSubmit={handleLogin} className="w-full max-w-md bg-neutral-950 border border-neutral-800 rounded-3xl p-8 space-y-6 shadow-2xl">
+                <div className="space-y-2 text-center">
+                    <h1 className="text-3xl font-bold text-yellow-500">Admin Login</h1>
+                    <p className="text-neutral-500">Mit demselben Benutzerkonto wie im Spielerbereich</p>
                 </div>
 
-                {/* Keypad */}
-                <div className="grid grid-cols-3 gap-3">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                        <button
-                            key={num}
-                            onClick={() => handleDigitClick(num.toString())}
-                            className="h-16 bg-neutral-300 rounded-lg text-2xl font-bold text-black hover:bg-white active:scale-95 transition-all shadow-lg"
-                        >
-                            {num}
-                        </button>
-                    ))}
-
-                    <button
-                        onClick={handleClear}
-                        className="h-16 bg-neutral-600 rounded-lg text-2xl font-bold text-white hover:bg-neutral-500 active:scale-95 transition-all shadow-lg flex items-center justify-center"
-                    >
-                        C
-                    </button>
-
-                    <button
-                        onClick={() => handleDigitClick('0')}
-                        className="h-16 bg-neutral-300 rounded-lg text-2xl font-bold text-black hover:bg-white active:scale-95 transition-all shadow-lg"
-                    >
-                        0
-                    </button>
-
-                    <button
-                        onClick={handleLogin}
-                        disabled={loading || pin.length === 0}
-                        className="h-16 bg-green-500 rounded-lg text-2xl font-bold text-black hover:bg-green-400 active:scale-95 transition-all shadow-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        ➔
-                    </button>
+                <div className="space-y-2">
+                    <label className="text-neutral-400 text-sm">Benutzername oder ID</label>
+                    <input
+                        value={credentials}
+                        onChange={(e) => setCredentials(e.target.value)}
+                        className="w-full bg-neutral-900 border border-neutral-800 p-4 rounded-xl text-white"
+                        autoComplete="username"
+                    />
                 </div>
 
-                {error && <div className="text-red-500 text-center font-bold mt-4">{error}</div>}
-            </div>
+                <div className="space-y-2">
+                    <label className="text-neutral-400 text-sm">PIN</label>
+                    <input
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                        className="w-full bg-neutral-900 border border-neutral-800 p-4 rounded-xl text-white"
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="current-password"
+                    />
+                </div>
+
+                {error && <div className="text-red-500 text-center font-bold">{error}</div>}
+
+                <button
+                    type="submit"
+                    disabled={loading || !credentials || !pin}
+                    className="w-full py-4 bg-yellow-500 rounded-xl text-black font-bold hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {loading ? 'Anmeldung...' : 'Admin Dashboard öffnen'}
+                </button>
+
+                <button onClick={() => navigate('/')} type="button" className="w-full text-neutral-600 hover:text-white text-sm">
+                    Zurück zum Hauptmenü
+                </button>
+            </form>
         </div>
     );
 }

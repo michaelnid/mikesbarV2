@@ -24,17 +24,7 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        // Try to find user by ID or Username
-        User? user = null;
-        if (int.TryParse(request.Credentials, out int userId))
-        {
-            user = await _context.Users.FindAsync(userId);
-        }
-        
-        if (user == null)
-        {
-             user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Credentials);
-        }
+        var user = await FindUserByCredentialsAsync(request.Credentials);
 
         if (user == null || !_authService.VerifyPin(user!.PinHash, request.Pin))
         {
@@ -57,45 +47,60 @@ public class AuthController : ControllerBase
     [HttpPost("dealer-login")]
     public async Task<IActionResult> DealerLogin([FromBody] LoginRequest request)
     {
-        // Dealer login by PIN only
-        // effectively, we need to find a dealer with this PIN.
-        // Since we store hashes, we might need to iterate? 
-        // OR: enforce username for dealers too?
-        // User requirement: "Anhand der PIN wird abgefragt welcher Dealer sich hier anmeldet."
-        // This implies we need to match the PIN against all dealers.
-        // This is inefficient if we have many dealers and bcrypt.
-        // BUT for a home party with < 10 dealers, it's fine to load all active dealers and check.
-        
-        var dealers = await _context.Dealers.Where(d => d.IsActive).ToListAsync();
-        foreach (var dealer in dealers)
+        var user = await FindUserByCredentialsAsync(request.Credentials);
+
+        if (user == null || !_authService.VerifyPin(user.PinHash, request.Pin))
         {
-            if (_authService.VerifyPin(dealer.PinHash, request.Pin))
-            {
-                // Generate new session token to invalidate old sessions
-                dealer.SessionToken = Guid.NewGuid().ToString("N").Substring(0, 20);
-                dealer.LastActivityAt = DateTime.UtcNow;
-
-                // End any active table sessions from previous login
-                var activeSessions = await _context.TableSessions
-                    .Where(s => s.DealerId == dealer.Id && s.LeftAt == null)
-                    .ToListAsync();
-                
-                foreach (var session in activeSessions)
-                {
-                    session.LeftAt = DateTime.UtcNow;
-                }
-
-                // Clear current game
-                dealer.CurrentGame = null;
-
-                await _context.SaveChangesAsync();
-
-                var token = _authService.GenerateToken(dealer);
-                return Ok(new { token, dealer });
-            }
+            return Unauthorized(new { message = "Invalid credentials" });
         }
 
-        return Unauthorized(new { message = "Invalid Dealer PIN" });
+        if (!user.IsActive)
+        {
+            return Unauthorized(new { message = "User is inactive" });
+        }
+
+        if (!user.HasPermission("DEALER"))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Kein Dealer-Zugang für dieses Konto" });
+        }
+
+        var dealer = await EnsureDealerProfileAsync(user);
+
+        dealer.SessionToken = Guid.NewGuid().ToString("N").Substring(0, 20);
+        dealer.LastActivityAt = DateTime.UtcNow;
+
+        var activeSessions = await _context.TableSessions
+            .Where(s => s.DealerId == dealer.Id && s.LeftAt == null)
+            .ToListAsync();
+
+        foreach (var session in activeSessions)
+        {
+            session.LeftAt = DateTime.UtcNow;
+        }
+
+        dealer.CurrentGame = null;
+
+        await _context.SaveChangesAsync();
+
+        var token = _authService.GenerateToken(dealer);
+        return Ok(new
+        {
+            token,
+            dealer = new
+            {
+                dealer.Id,
+                dealer.Name,
+                dealer.CurrentGame,
+                dealer.LastActivityAt,
+                dealer.UserId
+            },
+            user = new
+            {
+                user.Id,
+                user.Username,
+                permissionGroups = user.PermissionGroups
+            }
+        });
     }
 
     /// <summary>
@@ -147,5 +152,46 @@ public class AuthController : ControllerBase
         }
 
         return Ok(new { valid = true });
+    }
+
+    private async Task<User?> FindUserByCredentialsAsync(string credentials)
+    {
+        User? user = null;
+        if (int.TryParse(credentials, out int userId))
+        {
+            user = await _context.Users.FindAsync(userId);
+        }
+
+        if (user == null)
+        {
+            user = await _context.Users.FirstOrDefaultAsync(u => u.Username == credentials);
+        }
+
+        return user;
+    }
+
+    private async Task<Dealer> EnsureDealerProfileAsync(User user)
+    {
+        var dealer = await _context.Dealers.FirstOrDefaultAsync(d => d.UserId == user.Id);
+        if (dealer == null)
+        {
+            dealer = new Dealer
+            {
+                UserId = user.Id,
+                Name = user.Username,
+                PinHash = user.PinHash,
+                IsActive = user.IsActive,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Dealers.Add(dealer);
+            await _context.SaveChangesAsync();
+            return dealer;
+        }
+
+        dealer.Name = user.Username;
+        dealer.PinHash = user.PinHash;
+        dealer.IsActive = user.IsActive;
+        return dealer;
     }
 }

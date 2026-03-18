@@ -25,7 +25,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<IEnumerable<User>>> GetLeaderboard()
     {
         return await _context.Users
-            .Where(u => u.IsActive && u.Role == "USER")
+            .Where(u => u.IsActive)
             .OrderByDescending(u => u.Balance)
             .Select(u => new User 
             { 
@@ -33,7 +33,8 @@ public class UsersController : ControllerBase
                 Username = u.Username, 
                 Balance = u.Balance, 
                 AvatarUrl = u.AvatarUrl,
-                Role = u.Role
+                Role = u.Role,
+                Permissions = u.Permissions
                 // Don't return sensitive info like PinHash or QrCodeUuid for public leaderboard
             })
             .ToListAsync();
@@ -61,7 +62,8 @@ public class UsersController : ControllerBase
             Username = user.Username, 
             Balance = user.Balance, 
             AvatarUrl = user.AvatarUrl,
-            Role = user.Role
+            Role = user.Role,
+            Permissions = user.Permissions
         };
     }
 

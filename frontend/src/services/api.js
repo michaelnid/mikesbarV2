@@ -66,13 +66,13 @@ export const api = {
         return await response.json();
     },
 
-    dealerLogin: async (pin) => {
+    dealerLogin: async (credentials, pin) => {
         const response = await request(`${API_BASE_URL}/auth/dealer-login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ credentials: 'DEALER', pin }),
+            body: JSON.stringify({ credentials, pin }),
         });
 
         if (!response.ok) {
@@ -175,14 +175,14 @@ export const api = {
         return await response.json();
     },
 
-    createUser: async (token, username, pin) => {
+    createUser: async (token, username, pin, permissionGroups = ['PLAYER']) => {
         const response = await request(`${API_BASE_URL}/admin/users`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ username, pin }),
+            body: JSON.stringify({ username, pin, permissionGroups }),
         });
         if (!response.ok) throw new Error('Failed to create user');
         return await response.json();
