@@ -164,6 +164,9 @@ if [ "$SSL_ENABLED" = "true" ]; then
     obtain_ssl_certificate "$DOMAIN_INPUT"
     PUBLIC_ORIGIN="$(build_public_origin "$DOMAIN_INPUT" "true")"
     write_runtime_env "$DB_NAME" "$DB_USER" "$DB_PASSWORD" "$PUBLIC_ORIGIN" "$JWT_SECRET"
+    write_nginx_site "${DOMAIN_INPUT}" "$PHP_FPM_SOCKET"
+    nginx -t
+    systemctl reload nginx
     systemctl restart "$SYSTEMD_SERVICE_NAME"
 else
     log_warn "Keine Domain gesetzt. Installation bleibt auf HTTP ueber ${SERVER_IP}."

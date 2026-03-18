@@ -547,10 +547,94 @@ EOF
 write_nginx_site() {
     local server_name="$1"
     local php_socket="$2"
+    local ssl_cert_path=""
+    local ssl_key_path=""
+    local enable_ssl="false"
 
     [ -n "$php_socket" ] || die "Kein PHP-FPM-Socket gefunden."
 
-    cat >"$NGINX_SITE_PATH" <<EOF
+    if [ "${SSL_ENABLED:-false}" = "true" ] && [ -n "${DOMAIN:-}" ]; then
+        ssl_cert_path="/etc/letsencrypt/live/${DOMAIN}/fullchain.pem"
+        ssl_key_path="/etc/letsencrypt/live/${DOMAIN}/privkey.pem"
+
+        if [ -f "$ssl_cert_path" ] && [ -f "$ssl_key_path" ]; then
+            enable_ssl="true"
+        fi
+    fi
+
+    if [ "$enable_ssl" = "true" ]; then
+        cat >"$NGINX_SITE_PATH" <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${server_name};
+
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${server_name};
+
+    ssl_certificate ${ssl_cert_path};
+    ssl_certificate_key ${ssl_key_path};
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    root ${SITE_ROOT};
+    index index.html;
+    client_max_body_size 5M;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:${DEFAULT_APP_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location /hubs/ {
+        proxy_pass http://127.0.0.1:${DEFAULT_APP_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 600s;
+    }
+
+    location /swagger/ {
+        proxy_pass http://127.0.0.1:${DEFAULT_APP_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location = /avatars/upload.php {
+        include snippets/fastcgi-php.conf;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_pass unix:${php_socket};
+    }
+
+    location /avatars/ {
+        try_files \$uri \$uri/ =404;
+    }
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location ~ \.php$ {
+        return 404;
+    }
+}
+EOF
+    else
+        cat >"$NGINX_SITE_PATH" <<EOF
 server {
     listen 80;
     listen [::]:80;
@@ -607,6 +691,7 @@ server {
     }
 }
 EOF
+    fi
 
     ln -sf "$NGINX_SITE_PATH" "$NGINX_SITE_LINK"
     rm -f /etc/nginx/sites-enabled/default
@@ -630,12 +715,11 @@ obtain_ssl_certificate() {
 
     [ -n "$domain" ] || return 0
 
-    certbot --nginx \
+    certbot certonly --nginx \
         --non-interactive \
         --agree-tos \
         --register-unsafely-without-email \
-        -d "$domain" \
-        --redirect
+        -d "$domain"
 }
 
 renew_ssl_certificates() {
