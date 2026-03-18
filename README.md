@@ -28,6 +28,7 @@ API-first Core-Framework fuer Benutzerverwaltung, Dealer-Tische, Statistiken und
 
 ## Installationshinweise
 
-- Der Installer fragt interaktiv Domain, Admin-Zugang und Datenbankwerte ab.
+- Der Installer fragt interaktiv Domain, Admin-Benutzername und Datenbankwerte ab.
+- Wenn keine `--admin-pin` uebergeben wird, erzeugt das Setup automatisch eine zufaellige 6-stellige initiale Admin-PIN und zeigt sie am Ende an.
 - Wenn eine Domain angegeben wird, richtet das Setup automatisch nginx, Reverse-Proxy und ein Let's-Encrypt-Zertifikat ohne E-Mail-Pflicht ein.
 - Ohne Domain wird das System ueber HTTP auf der Server-IP bereitgestellt.

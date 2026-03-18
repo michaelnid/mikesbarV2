@@ -107,7 +107,8 @@ ADMIN_USERNAME="$(prompt_value "Initialer Admin-Benutzername" "$ADMIN_USERNAME" 
 require_match "$ADMIN_USERNAME" "Admin-Benutzername" '^[A-Za-z0-9._-]{3,50}$'
 
 if [ -z "$ADMIN_PIN" ]; then
-    ADMIN_PIN="$(prompt_secret "Initiale Admin-PIN")"
+    ADMIN_PIN="$(random_digits 6)"
+    log_info "Es wurde automatisch eine zufaellige 6-stellige Admin-PIN erzeugt."
 fi
 require_match "$ADMIN_PIN" "Admin-PIN" '^[0-9]{6}$'
 
@@ -168,3 +169,4 @@ else
 fi
 
 print_access_summary "$PUBLIC_ORIGIN"
+print_admin_credentials "$ADMIN_USERNAME" "$ADMIN_PIN"

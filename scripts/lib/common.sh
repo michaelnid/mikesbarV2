@@ -195,6 +195,11 @@ random_alnum() {
     tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$length"
 }
 
+random_digits() {
+    local length="${1:-6}"
+    tr -dc '0-9' </dev/urandom | head -c "$length"
+}
+
 ensure_base_apt_packages() {
     rm -f /etc/apt/sources.list.d/microsoft-prod.list
     rm -f /etc/apt/sources.list.d/microsoft-prod.list.save
@@ -631,4 +636,12 @@ print_access_summary() {
     printf 'API intern: http://127.0.0.1:%s/api\n' "$DEFAULT_APP_PORT"
     printf 'Update: sudo mikesbar-update\n'
     printf 'Deinstall: sudo mikesbar-uninstall\n'
+}
+
+print_admin_credentials() {
+    local admin_username="$1"
+    local admin_pin="$2"
+    printf 'Initialer Admin-Benutzer: %s\n' "$admin_username"
+    printf 'Initiale Admin-PIN: %s\n' "$admin_pin"
+    printf 'Bitte die PIN jetzt notieren und spaeter im System aendern.\n'
 }
