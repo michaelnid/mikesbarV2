@@ -61,12 +61,8 @@ export default function HomePage() {
                         </span>
                     </h1>
                     <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-yellow-500/80 tracking-[0.3em] uppercase">
-                        CORE FRAMEWORK
+                        PARTYPOKER
                     </h2>
-                    <p className="mt-6 max-w-2xl text-sm sm:text-base text-neutral-300">
-                        Die alten Casino-Spiele wurden aus diesem Repository entfernt. Es bleibt der Kern für Benutzer,
-                        Dealer, Sessions, Guthaben, Statistiken und die pluginbasierte Einbindung neuer Live-Games.
-                    </p>
                 </div>
 
                 <div className={`w-full max-w-4xl flex flex-wrap gap-4 ${!user ? 'justify-center' : ''}`}>
