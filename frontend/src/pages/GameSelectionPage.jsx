@@ -46,6 +46,17 @@ export default function GameSelectionPage() {
     const handleSelectGame = (game) => {
         localStorage.setItem('selected_game', game.key);
         localStorage.setItem('selected_game_name', game.name);
+
+        if (game.launchMode === 'external' && game.externalLaunchUrl) {
+            const targetUrl = new URL(game.externalLaunchUrl);
+            targetUrl.searchParams.set('plugin', game.key);
+            if (dealer.id) {
+                targetUrl.searchParams.set('dealerId', dealer.id);
+            }
+            window.location.assign(targetUrl.toString());
+            return;
+        }
+
         navigate(game.clientRoute || (game.launchMode === 'direct' ? '/dealer/bank' : '/dealer/players'));
     };
 
@@ -88,6 +99,9 @@ export default function GameSelectionPage() {
                                 <div>
                                     <div className="text-lg font-bold text-white">{game.name}</div>
                                     <p className="mt-1 text-sm text-neutral-300">{game.description}</p>
+                                    <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                                        {game.source === 'package' ? `Plugin ${game.version}` : 'System'}
+                                    </div>
                                 </div>
                                 <span className="rounded-full bg-black/20 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-neutral-300">
                                     {game.launchMode}

@@ -1,0 +1,17 @@
+{
+  "packageType": "mikesbar-livegame",
+  "schemaVersion": 1,
+  "key": "roulette_pro",
+  "name": "Roulette Pro",
+  "version": "1.0.0",
+  "description": "Externes Live-Roulette mit eigener Multiplayer-Logik.",
+  "clientRoute": "/dealer/players",
+  "launchMode": "external",
+  "dealerSelectable": true,
+  "requiresPlayerSession": true,
+  "defaultEnabled": true,
+  "sortOrder": 100,
+  "accentColor": "red",
+  "developer": "Your Studio",
+  "externalLaunchUrl": "https://games.example.com/roulette-pro"
+}

@@ -20,30 +20,68 @@ public sealed record LiveGamePluginDescriptor(
     bool RequiresPlayerSession,
     bool DefaultEnabled,
     int SortOrder,
-    string AccentColor);
+    string AccentColor,
+    string Source,
+    string Version,
+    string Developer,
+    string? ExternalLaunchUrl,
+    DateTimeOffset? InstalledAtUtc);
 
 public sealed class LiveGameCatalogService : ILiveGameCatalogService
 {
     private static readonly IReadOnlyList<LiveGamePluginDescriptor> FallbackPlugins =
     [
-        new("bank", "Bank", "Allgemeine Kasse ohne aktiven Live-Tisch.", "/dealer/bank", "direct", true, false, true, 0, "amber"),
-        new("blackjack", "Blackjack", "Klassischer Live-Tisch mit gemeinsamer Spielerverwaltung.", "/dealer/players", "table", true, true, true, 10, "emerald"),
-        new("roulette", "Roulette", "Roulette-Tisch für Dealer und externe API-Clients.", "/dealer/players", "table", true, true, true, 20, "red"),
-        new("ultimate_poker", "Ultimate Poker", "Poker-Tisch für Live-Runden und angebundene Apps.", "/dealer/players", "table", true, true, true, 30, "blue"),
-        new("craps", "Craps", "Craps-Tisch mit zentraler Sitzungsverwaltung.", "/dealer/players", "table", true, true, true, 40, "slate")
+        new("bank", "Bank", "Allgemeine Kasse ohne aktiven Live-Tisch.", "/dealer/bank", "direct", true, false, true, 0, "amber", "builtin", "system", "mikesBAR", null, null),
+        new("blackjack", "Blackjack", "Klassischer Live-Tisch mit gemeinsamer Spielerverwaltung.", "/dealer/players", "table", true, true, true, 10, "emerald", "builtin", "system", "mikesBAR", null, null),
+        new("roulette", "Roulette", "Roulette-Tisch für Dealer und externe API-Clients.", "/dealer/players", "table", true, true, true, 20, "red", "builtin", "system", "mikesBAR", null, null),
+        new("ultimate_poker", "Ultimate Poker", "Poker-Tisch für Live-Runden und angebundene Apps.", "/dealer/players", "table", true, true, true, 30, "blue", "builtin", "system", "mikesBAR", null, null),
+        new("craps", "Craps", "Craps-Tisch mit zentraler Sitzungsverwaltung.", "/dealer/players", "table", true, true, true, 40, "slate", "builtin", "system", "mikesBAR", null, null)
     ];
 
-    private readonly IReadOnlyList<LiveGamePluginDescriptor> _plugins;
+    private readonly IReadOnlyList<LiveGamePluginDescriptor> _configuredPlugins;
+    private readonly ILiveGamePluginPackageService _pluginPackageService;
 
-    public LiveGameCatalogService(IOptions<LiveGamesOptions> options)
+    public LiveGameCatalogService(IOptions<LiveGamesOptions> options, ILiveGamePluginPackageService pluginPackageService)
     {
-        _plugins = Normalize(options.Value.Plugins);
+        _configuredPlugins = Normalize(options.Value.Plugins);
+        _pluginPackageService = pluginPackageService;
     }
 
-    public IReadOnlyList<LiveGamePluginDescriptor> GetAll() => _plugins;
+    public IReadOnlyList<LiveGamePluginDescriptor> GetAll()
+    {
+        var plugins = _configuredPlugins.Count > 0
+            ? _configuredPlugins.ToList()
+            : FallbackPlugins.ToList();
+
+        foreach (var package in _pluginPackageService.GetInstalledPackages())
+        {
+            plugins.RemoveAll(plugin => plugin.Key.Equals(package.Key, StringComparison.OrdinalIgnoreCase));
+            plugins.Add(new LiveGamePluginDescriptor(
+                package.Key,
+                package.Name,
+                package.Description,
+                package.ClientRoute,
+                package.LaunchMode,
+                package.DealerSelectable,
+                package.RequiresPlayerSession,
+                package.DefaultEnabled,
+                package.SortOrder,
+                package.AccentColor,
+                "package",
+                package.Version,
+                string.IsNullOrWhiteSpace(package.Developer) ? "Unbekannt" : package.Developer,
+                package.ExternalLaunchUrl,
+                package.InstalledAtUtc));
+        }
+
+        return plugins
+            .OrderBy(plugin => plugin.SortOrder)
+            .ThenBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 
     public IReadOnlyList<LiveGamePluginDescriptor> GetDealerSelectable() =>
-        _plugins
+        GetAll()
             .Where(plugin => plugin.DealerSelectable)
             .OrderBy(plugin => plugin.SortOrder)
             .ThenBy(plugin => plugin.Name, StringComparer.OrdinalIgnoreCase)
@@ -57,7 +95,7 @@ public sealed class LiveGameCatalogService : ILiveGameCatalogService
         }
 
         var normalizedKey = gameKey.Trim().ToLowerInvariant();
-        return _plugins.FirstOrDefault(plugin => plugin.DealerSelectable && plugin.Key == normalizedKey);
+        return GetAll().FirstOrDefault(plugin => plugin.DealerSelectable && plugin.Key == normalizedKey);
     }
 
     private static IReadOnlyList<LiveGamePluginDescriptor> Normalize(IEnumerable<LiveGamePluginOptions>? configuredPlugins)
@@ -85,7 +123,12 @@ public sealed class LiveGameCatalogService : ILiveGameCatalogService
                 plugin.RequiresPlayerSession,
                 plugin.DefaultEnabled,
                 plugin.SortOrder,
-                string.IsNullOrWhiteSpace(plugin.AccentColor) ? "neutral" : plugin.AccentColor.Trim().ToLowerInvariant()));
+                string.IsNullOrWhiteSpace(plugin.AccentColor) ? "neutral" : plugin.AccentColor.Trim().ToLowerInvariant(),
+                "builtin",
+                "system",
+                "mikesBAR",
+                string.IsNullOrWhiteSpace(plugin.ExternalLaunchUrl) ? null : plugin.ExternalLaunchUrl.Trim(),
+                null));
         }
 
         return normalizedPlugins.Count > 0

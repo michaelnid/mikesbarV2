@@ -82,7 +82,12 @@ public class LiveGamesController : ControllerBase
             plugin.DefaultEnabled,
             isEnabled,
             plugin.SortOrder,
-            plugin.AccentColor);
+            plugin.AccentColor,
+            plugin.Source,
+            plugin.Version,
+            plugin.Developer,
+            plugin.ExternalLaunchUrl,
+            plugin.InstalledAtUtc);
     }
 }
 
@@ -97,4 +102,9 @@ public sealed record LiveGamePluginResponse(
     bool defaultEnabled,
     bool isEnabled,
     int sortOrder,
-    string accentColor);
+    string accentColor,
+    string source,
+    string version,
+    string developer,
+    string? externalLaunchUrl,
+    DateTimeOffset? installedAtUtc);

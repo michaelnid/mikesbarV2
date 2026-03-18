@@ -338,6 +338,46 @@ export const api = {
     },
 
     // Table Management (Dealer)
+    getInstalledLiveGamePackages: async (token) => {
+        const response = await request(`${API_BASE_URL}/admin/live-game-plugins`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to load installed plugin packages');
+        return await response.json();
+    },
+
+    uploadLiveGamePackage: async (token, file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await request(`${API_BASE_URL}/admin/live-game-plugins/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.message || 'Plugin upload failed');
+        }
+
+        return payload;
+    },
+
+    deleteLiveGamePackage: async (token, key) => {
+        const response = await request(`${API_BASE_URL}/admin/live-game-plugins/${key}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.message || 'Plugin uninstall failed');
+        }
+        return payload;
+    },
+
     getDealerLiveGames: async () => {
         const response = await request(`${API_BASE_URL}/livegames/dealer`);
         if (!response.ok) throw new Error('Failed to load live games');

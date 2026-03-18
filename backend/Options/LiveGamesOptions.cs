@@ -17,4 +17,5 @@ public class LiveGamePluginOptions
     public bool DefaultEnabled { get; set; } = true;
     public int SortOrder { get; set; }
     public string AccentColor { get; set; } = "neutral";
+    public string? ExternalLaunchUrl { get; set; }
 }

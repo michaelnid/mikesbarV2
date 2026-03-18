@@ -69,6 +69,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 builder.Services.Configure<LiveGamesOptions>(builder.Configuration.GetSection("LiveGames"));
+builder.Services.Configure<PluginPackagesOptions>(builder.Configuration.GetSection("PluginPackages"));
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders =
@@ -109,6 +110,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddSingleton<ILiveGamePluginPackageService, LiveGamePluginPackageService>();
 builder.Services.AddSingleton<ILiveGameCatalogService, LiveGameCatalogService>();
 builder.Services.AddSingleton<StatsNotificationService>();
 

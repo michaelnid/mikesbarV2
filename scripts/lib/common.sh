@@ -303,7 +303,9 @@ ensure_app_user_and_dirs() {
     fi
 
     mkdir -p "$APP_ROOT" "$PUBLISH_ROOT" "$SITE_ROOT" "$DATA_ROOT" "$CONFIG_DIR"
+    mkdir -p "${DATA_ROOT}/live-game-packages/installed" "${DATA_ROOT}/live-game-packages/archives"
     chown -R "$APP_USER:$APP_GROUP" "/opt/${APP_NAME}"
+    chown -R "$APP_USER:$APP_GROUP" "$DATA_ROOT"
     mkdir -p "${SITE_ROOT}/avatars"
     chown -R www-data:www-data "${SITE_ROOT}/avatars"
     chmod 0775 "${SITE_ROOT}/avatars"
@@ -498,6 +500,7 @@ ASPNETCORE_URLS=http://127.0.0.1:${DEFAULT_APP_PORT}
 JWT_SECRET_KEY="${jwt_secret}"
 DB_CONNECTION_STRING="server=127.0.0.1;port=3306;database=${db_name};user=${db_user};password=${db_password}"
 ALLOWED_ORIGINS="${public_origin}"
+PLUGIN_STORAGE_PATH="${DATA_ROOT}/live-game-packages"
 EOF
 }
 

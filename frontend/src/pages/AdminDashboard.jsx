@@ -58,8 +58,8 @@ const Menu = ({ onSetView, onLoadUsers, onLoadGameSettings, onShowSslInfo, navig
             />
             <MenuButton
                 icon="🎮"
-                label="System Features"
-                description="Spiele & Settings steuern"
+                label="Plugins & Features"
+                description="Live-Games, Uploads und Settings"
                 color="from-purple-600/20 to-fuchsia-700/10"
                 onClick={() => { onLoadGameSettings(); onSetView('gameSettings'); }}
             />
@@ -308,8 +308,31 @@ const DealerListView = ({ dealers, token, onLoadDealers, onSetView, onSetConfirm
     );
 };
 
-const GameSettingsView = ({ gameSettings, onSetView, onToggleGame }) => (
-    <div className="max-w-2xl mx-auto w-full px-4 animate-fade-in-up">
+const GameSettingsView = ({ gameSettings, pluginPackages, uploadingPlugin, onSetView, onToggleGame, onUploadPlugin, onDeletePlugin, onSetConfirmData }) => {
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [uploadError, setUploadError] = useState('');
+    const fileInputRef = useRef(null);
+
+    const handleUpload = async () => {
+        if (!selectedFile) {
+            setUploadError('Bitte zuerst eine Plugin-ZIP auswählen.');
+            return;
+        }
+
+        try {
+            setUploadError('');
+            await onUploadPlugin(selectedFile);
+            setSelectedFile(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        } catch (error) {
+            setUploadError(error.message || 'Plugin-ZIP konnte nicht installiert werden.');
+        }
+    };
+
+    return (
+    <div className="max-w-4xl mx-auto w-full px-4 animate-fade-in-up">
         <Header title="Spiele & Systemsteuerung" onBack={() => onSetView('menu')} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {gameSettings.map(game => (
@@ -330,13 +353,105 @@ const GameSettingsView = ({ gameSettings, onSetView, onToggleGame }) => (
                 </div>
             ))}
         </div>
-        <div className="mt-8 glass-card p-4 rounded-xl text-center border border-white/5">
-            <p className="text-neutral-500 text-sm">
-                ⚠️ Deaktivierte Features werden sofort für alle Spieler ausgeblendet.
-            </p>
+
+        <div className="mt-8 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+            <div className="glass-card rounded-2xl p-6 border border-white/5">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-white">Installierte Plugin-Pakete</h3>
+                        <p className="text-sm text-neutral-400">ZIP-basierte Live-Game-Integrationen verwalten</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    {pluginPackages.map((plugin) => (
+                        <div key={plugin.key} className="rounded-2xl border border-white/5 bg-black/30 p-4">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <div className="text-white font-bold">{plugin.name}</div>
+                                    <div className="text-xs uppercase tracking-[0.2em] text-neutral-500 mt-1">
+                                        {plugin.key} · v{plugin.version}
+                                    </div>
+                                    {plugin.description && (
+                                        <p className="mt-2 text-sm text-neutral-400">{plugin.description}</p>
+                                    )}
+                                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                                        <span>{plugin.launchMode}</span>
+                                        {plugin.developer ? <span>{plugin.developer}</span> : null}
+                                        {plugin.externalLaunchUrl ? <span>Extern</span> : <span>Intern</span>}
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => onSetConfirmData({
+                                        title: 'Plugin deinstallieren',
+                                        message: `${plugin.name} wirklich entfernen?\n\nAktive Dealer-Sessions für dieses Plugin werden beendet und der Eintrag aus dem Katalog gelöscht.`,
+                                        icon: '🗑️',
+                                        isDanger: true,
+                                        confirmLabel: 'Plugin entfernen',
+                                        onConfirm: () => onDeletePlugin(plugin.key)
+                                    })}
+                                    className="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-xs font-bold uppercase tracking-widest"
+                                >
+                                    Entfernen
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    {pluginPackages.length === 0 && (
+                        <div className="rounded-2xl border border-white/5 bg-black/20 p-5 text-sm text-neutral-400">
+                            Aktuell ist kein hochgeladenes Plugin-Paket installiert.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="glass-card rounded-2xl p-6 border border-white/5">
+                <h3 className="text-lg font-bold text-white">Plugin-ZIP installieren</h3>
+                <p className="mt-2 text-sm text-neutral-400">
+                    Erlaubt sind nur registrierende Live-Game-Pakete mit <span className="font-mono">manifest.json</span>.
+                </p>
+
+                <div className="mt-5 space-y-4">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".zip,application/zip"
+                        onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+                        className="block w-full rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-neutral-300 file:mr-4 file:rounded-lg file:border-0 file:bg-yellow-500 file:px-3 file:py-2 file:text-xs file:font-bold file:text-black"
+                    />
+
+                    {selectedFile && (
+                        <div className="rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-sm text-neutral-300">
+                            {selectedFile.name}
+                        </div>
+                    )}
+
+                    {uploadError && (
+                        <div className="rounded-xl border border-red-500/20 bg-red-950/20 px-4 py-3 text-sm text-red-300">
+                            {uploadError}
+                        </div>
+                    )}
+
+                    <button
+                        onClick={handleUpload}
+                        disabled={uploadingPlugin}
+                        className="w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 text-black font-black uppercase tracking-widest text-sm rounded-xl hover:from-yellow-400 hover:to-amber-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        {uploadingPlugin ? 'Installiere Plugin...' : 'ZIP installieren'}
+                    </button>
+
+                    <div className="rounded-xl border border-white/5 bg-black/20 p-4 text-xs text-neutral-500 leading-relaxed">
+                        Developer Guide:
+                        <div className="mt-1 font-mono text-neutral-400">docs/LIVE_GAME_PLUGIN_DEV_GUIDE.md</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-);
+    );
+};
 
 const StatsView = ({ token, refreshKey, onSetView }) => (
     <div className="w-full max-w-6xl mx-auto px-4 animate-fade-in-up">
@@ -361,6 +476,7 @@ export default function AdminDashboard() {
     const [users, setUsers] = useState([]);
     const [dealers, setDealers] = useState([]);
     const [gameSettings, setGameSettings] = useState([]);
+    const [pluginPackages, setPluginPackages] = useState([]);
     const [avatarKey, setAvatarKey] = useState(Date.now()); // Force refresh für Avatar-Bilder
     const [statsRefreshKey, setStatsRefreshKey] = useState(0);
     const [confirmData, setConfirmData] = useState(null); // { title: string, message: string, onConfirm: function }
@@ -377,6 +493,7 @@ export default function AdminDashboard() {
     const [sslInfo, setSslInfo] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [dealerSearchQuery, setDealerSearchQuery] = useState('');
+    const [uploadingPlugin, setUploadingPlugin] = useState(false);
 
     const connectionRef = useRef(null);
 
@@ -419,7 +536,10 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         if (view === 'userList' || view === 'editUser') loadUsers();
-        if (view === 'gameSettings') loadGameSettings();
+        if (view === 'gameSettings') {
+            loadGameSettings();
+            loadPluginPackages();
+        }
     }, [view, token]); // Re-load if view or token changes
 
     useEffect(() => {
@@ -493,6 +613,15 @@ export default function AdminDashboard() {
         }
     };
 
+    const loadPluginPackages = async () => {
+        try {
+            const data = await api.getInstalledLiveGamePackages(token);
+            setPluginPackages(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     const toggleGame = async (gameKey, isEnabled) => {
         try {
             const response = await fetch(`${API_BASE_URL}/gamesettings/${gameKey}`, {
@@ -523,6 +652,21 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleUploadPlugin = async (file) => {
+        setUploadingPlugin(true);
+        try {
+            await api.uploadLiveGamePackage(token, file);
+            await Promise.all([loadGameSettings(), loadPluginPackages()]);
+        } finally {
+            setUploadingPlugin(false);
+        }
+    };
+
+    const handleDeletePlugin = async (key) => {
+        await api.deleteLiveGamePackage(token, key);
+        await Promise.all([loadGameSettings(), loadPluginPackages()]);
+    };
+
     return (
         <div className="min-h-screen bg-neutral-950 flex flex-col relative overflow-hidden text-white font-sans">
             {/* Background Effects matching HomePage */}
@@ -537,7 +681,7 @@ export default function AdminDashboard() {
                 {view === 'userList' && <UserListView users={users} mode="view" token={token} avatarKey={avatarKey} onSetAvatarKey={setAvatarKey} onLoadUsers={loadUsers} onSetView={setView} onSetConfirmData={setConfirmData} onSetEditingUser={setEditingUser} onSetShowQrFor={setShowQrFor} onSetShowHistoryFor={setShowHistoryFor} onSetShowScanner={setShowScanner} searchQuery={searchQuery} onSetSearchQuery={setSearchQuery} onSetShowCreateUser={setShowCreateUser} />}
                 {view === 'editUser' && <UserListView users={users} mode="edit" token={token} avatarKey={avatarKey} onSetAvatarKey={setAvatarKey} onLoadUsers={loadUsers} onSetView={setView} onSetConfirmData={setConfirmData} onSetEditingUser={setEditingUser} onSetShowQrFor={setShowQrFor} onSetShowHistoryFor={setShowHistoryFor} onSetShowScanner={setShowScanner} searchQuery={searchQuery} onSetSearchQuery={setSearchQuery} onSetShowCreateUser={setShowCreateUser} />}
                 {view === 'editDealer' && <DealerListView dealers={dealers} token={token} onLoadDealers={loadDealers} onSetView={setView} onSetConfirmData={setConfirmData} onSetShowCreateDealer={setShowCreateDealer} dealerSearchQuery={dealerSearchQuery} onSetDealerSearchQuery={setDealerSearchQuery} onSetEditingDealer={setEditingDealer} />}
-                {view === 'gameSettings' && <GameSettingsView gameSettings={gameSettings} onSetView={setView} onToggleGame={toggleGame} />}
+                {view === 'gameSettings' && <GameSettingsView gameSettings={gameSettings} pluginPackages={pluginPackages} uploadingPlugin={uploadingPlugin} onSetView={setView} onToggleGame={toggleGame} onUploadPlugin={handleUploadPlugin} onDeletePlugin={handleDeletePlugin} onSetConfirmData={setConfirmData} />}
             </div>
 
             {editingUser && (
