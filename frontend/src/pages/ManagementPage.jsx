@@ -10,7 +10,7 @@ const ManagementCard = ({ title, description, accentClass, icon, onClick }) => (
     >
         <div className="flex items-center gap-4">
             <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl ${accentClass} flex items-center justify-center shrink-0`}>
-                <span className="text-3xl">{icon}</span>
+                {typeof icon === 'string' ? <span className="text-3xl">{icon}</span> : icon}
             </div>
             <div>
                 <h3 className="text-lg sm:text-xl font-bold text-white">{title}</h3>
@@ -20,10 +20,20 @@ const ManagementCard = ({ title, description, accentClass, icon, onClick }) => (
     </button>
 );
 
+const pluginAccentClasses = {
+    amber: 'bg-gradient-to-br from-amber-500/20 to-amber-600/10',
+    emerald: 'bg-gradient-to-br from-emerald-500/20 to-emerald-700/10',
+    red: 'bg-gradient-to-br from-red-500/20 to-red-700/10',
+    blue: 'bg-gradient-to-br from-blue-500/20 to-indigo-700/10',
+    slate: 'bg-gradient-to-br from-slate-500/20 to-slate-700/10',
+    neutral: 'bg-gradient-to-br from-neutral-500/20 to-neutral-700/10'
+};
+
 export default function ManagementPage() {
     const navigate = useNavigate();
     const token = localStorage.getItem('token');
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
+    const [pluginTiles, setPluginTiles] = useState([]);
 
     useEffect(() => {
         if (!token || !user || (!hasPermission(user, 'DEALER') && !hasPermission(user, 'ADMIN'))) {
@@ -37,6 +47,10 @@ export default function ManagementPage() {
         }).catch(() => {
             navigate('/');
         });
+
+        api.getPluginDashboardTiles('management', token)
+            .then((data) => setPluginTiles(Array.isArray(data) ? data : []))
+            .catch(() => setPluginTiles([]));
     }, [navigate, token]);
 
     const showDealerEntry = canSeeDealerTile(user);
@@ -86,6 +100,17 @@ export default function ManagementPage() {
                                 onClick={() => navigate('/admin/dashboard')}
                             />
                         )}
+
+                        {pluginTiles.map((tile) => (
+                            <ManagementCard
+                                key={`${tile.key}-${tile.title}`}
+                                title={tile.title}
+                                description={tile.description}
+                                accentClass={pluginAccentClasses[tile.accentColor] || pluginAccentClasses.neutral}
+                                icon={tile.iconUrl ? <img src={tile.iconUrl} alt="" className="w-8 h-8 object-contain" /> : '🎮'}
+                                onClick={() => navigate(tile.route || `/plugins/${tile.key}`)}
+                            />
+                        ))}
                     </div>
 
                     <div className="mt-8 flex justify-center">

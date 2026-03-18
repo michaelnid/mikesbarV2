@@ -4,14 +4,36 @@
   "key": "roulette_pro",
   "name": "Roulette Pro",
   "version": "1.0.0",
-  "description": "Externes Live-Roulette mit eigener Multiplayer-Logik.",
-  "clientRoute": "/dealer/players",
-  "launchMode": "external",
+  "description": "Live-Roulette als installierbares Code-Plugin.",
+  "clientRoute": "/plugins/roulette_pro",
+  "launchMode": "direct",
   "dealerSelectable": true,
   "requiresPlayerSession": true,
   "defaultEnabled": true,
   "sortOrder": 100,
   "accentColor": "red",
   "developer": "Your Studio",
-  "externalLaunchUrl": "https://games.example.com/roulette-pro"
+  "externalLaunchUrl": null,
+  "apiRequiredPermission": "PLAYER",
+  "allowAnonymousApi": false,
+  "backend": {
+    "assemblyPath": "backend/RoulettePro.Plugin.dll",
+    "typeName": "RoulettePro.Plugin.RouletteProPlugin"
+  },
+  "frontend": {
+    "entryPoint": "frontend/dist/index.html",
+    "basePath": "frontend/dist"
+  },
+  "dashboardTiles": [
+    {
+      "surface": "player",
+      "title": "Roulette Pro",
+      "description": "Installiertes Live-Roulette",
+      "route": "/plugins/roulette_pro",
+      "iconPath": "assets/icon.svg",
+      "accentColor": "red",
+      "requiredPermission": "PLAYER",
+      "visibleByDefault": true
+    }
+  ]
 }

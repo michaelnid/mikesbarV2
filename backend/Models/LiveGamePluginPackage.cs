@@ -1,23 +1,6 @@
-namespace Backend.Models;
+using Mikesbar.PluginSdk.LiveGames;
 
-public sealed class LiveGamePluginManifest
-{
-    public string PackageType { get; set; } = "mikesbar-livegame";
-    public int SchemaVersion { get; set; } = 1;
-    public string Key { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string Version { get; set; } = "1.0.0";
-    public string Description { get; set; } = string.Empty;
-    public string ClientRoute { get; set; } = "/dealer/players";
-    public string LaunchMode { get; set; } = "table";
-    public bool DealerSelectable { get; set; } = true;
-    public bool RequiresPlayerSession { get; set; } = true;
-    public bool DefaultEnabled { get; set; } = true;
-    public int SortOrder { get; set; }
-    public string AccentColor { get; set; } = "neutral";
-    public string Developer { get; set; } = string.Empty;
-    public string? ExternalLaunchUrl { get; set; }
-}
+namespace Backend.Models;
 
 public sealed class LiveGamePluginInstallMetadata
 {
@@ -40,6 +23,13 @@ public sealed record InstalledLiveGamePluginPackage(
     int SortOrder,
     string AccentColor,
     string? ExternalLaunchUrl,
+    string ApiRequiredPermission,
+    bool AllowAnonymousApi,
+    string BackendAssemblyPath,
+    string BackendTypeName,
+    string FrontendEntryPoint,
+    string FrontendBasePath,
+    IReadOnlyList<LiveGamePluginDashboardTile> DashboardTiles,
     string UploadedFileName,
     DateTimeOffset InstalledAtUtc,
     string Sha256);

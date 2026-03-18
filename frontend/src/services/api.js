@@ -96,6 +96,14 @@ export const api = {
         return await response.json();
     },
 
+    getPluginDashboardTiles: async (surface, token) => {
+        const response = await request(`${API_BASE_URL}/plugin-runtime/dashboard/${surface}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : undefined
+        });
+        if (!response.ok) throw new Error('Plugin-Kacheln konnten nicht geladen werden');
+        return await response.json();
+    },
+
     getUserByQr: async (uuid) => {
         const response = await request(`${API_BASE_URL}/users/qr/${uuid}`);
         if (!response.ok) throw new Error('QR Code ungültig');

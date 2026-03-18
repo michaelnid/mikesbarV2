@@ -7,12 +7,21 @@ import ChangePinModal from '../components/ChangePinModal';
 import { api, API_BASE_URL } from '../services/api';
 import { DEFAULT_AVATAR_URL } from '../constants/assets';
 
+const pluginAccentClasses = {
+    amber: 'from-amber-500/20 to-amber-600/10',
+    emerald: 'from-emerald-500/20 to-emerald-600/10',
+    red: 'from-red-500/20 to-red-600/10',
+    blue: 'from-blue-500/20 to-blue-600/10',
+    slate: 'from-slate-500/20 to-slate-600/10',
+    neutral: 'from-neutral-500/20 to-neutral-600/10'
+};
+
 export default function PlayerDashboard() {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [showTransfer, setShowTransfer] = useState(false);
-
     const [showChangePin, setShowChangePin] = useState(false);
+    const [pluginTiles, setPluginTiles] = useState([]);
 
     const token = localStorage.getItem('token');
 
@@ -25,6 +34,7 @@ export default function PlayerDashboard() {
         setUser(JSON.parse(userData));
 
         fetchUser();
+        fetchPluginTiles();
         const interval = setInterval(fetchUser, 5000);
 
         return () => clearInterval(interval);
@@ -37,6 +47,15 @@ export default function PlayerDashboard() {
             localStorage.setItem('user', JSON.stringify(data));
         } catch (err) {
             console.error("Failed to update user data", err);
+        }
+    };
+
+    const fetchPluginTiles = async () => {
+        try {
+            const data = await api.getPluginDashboardTiles('player', token);
+            setPluginTiles(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error('Failed to load plugin tiles', err);
         }
     };
 
@@ -172,6 +191,38 @@ export default function PlayerDashboard() {
                             <span className="text-xs font-bold text-neutral-300 group-hover:text-white transition-colors">Rangliste</span>
                         </button>
                     </div>
+
+                    {pluginTiles.length > 0 && (
+                        <div className="animate-fade-in-up opacity-0 delay-300" style={{ animationFillMode: 'forwards' }}>
+                            <div className="mb-4">
+                                <h3 className="text-lg font-bold text-white">Spielmodule</h3>
+                                <p className="text-sm text-neutral-500">Installierte Live-Game-Plugins</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {pluginTiles.map((tile) => (
+                                    <button
+                                        key={`${tile.key}-${tile.title}`}
+                                        onClick={() => navigate(tile.route || `/plugins/${tile.key}`)}
+                                        className="glass-card rounded-2xl p-5 text-left active:scale-95 transition-transform"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${pluginAccentClasses[tile.accentColor] || pluginAccentClasses.neutral} flex items-center justify-center overflow-hidden shrink-0`}>
+                                                {tile.iconUrl ? (
+                                                    <img src={tile.iconUrl} alt="" className="w-8 h-8 object-contain" />
+                                                ) : (
+                                                    <span className="text-2xl">🎮</span>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-white">{tile.title}</div>
+                                                <div className="text-sm text-neutral-400">{tile.description}</div>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                 </div>
             </div>

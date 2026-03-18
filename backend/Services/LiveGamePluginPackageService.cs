@@ -4,12 +4,14 @@ using System.Text.Json;
 using Backend.Models;
 using Backend.Options;
 using Microsoft.Extensions.Options;
+using Mikesbar.PluginSdk.LiveGames;
 
 namespace Backend.Services;
 
 public interface ILiveGamePluginPackageService
 {
     IReadOnlyList<InstalledLiveGamePluginPackage> GetInstalledPackages();
+    string? GetInstallDirectory(string key);
     Task<InstalledLiveGamePluginPackage> InstallAsync(Stream packageStream, string fileName, CancellationToken cancellationToken = default);
     Task RemoveAsync(string key, CancellationToken cancellationToken = default);
 }
@@ -32,7 +34,7 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
         "README.md"
     };
 
-    private static readonly HashSet<string> AllowedAssetExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AllowedTextAssetExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".json",
         ".md",
@@ -43,6 +45,28 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
         ".jpeg",
         ".webp",
         ".gif"
+    };
+
+    private static readonly HashSet<string> AllowedBinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".dll",
+        ".deps.json",
+        ".runtimeconfig.json",
+        ".pdb",
+        ".json",
+        ".js",
+        ".css",
+        ".html",
+        ".map",
+        ".svg",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".txt",
+        ".woff",
+        ".woff2"
     };
 
     private readonly PluginPackagesOptions _options;
@@ -94,6 +118,18 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
             .ToList();
     }
 
+    public string? GetInstallDirectory(string key)
+    {
+        var normalizedKey = key?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedKey))
+        {
+            return null;
+        }
+
+        var installDirectory = Path.Combine(GetInstalledRoot(), normalizedKey);
+        return Directory.Exists(installDirectory) ? installDirectory : null;
+    }
+
     public async Task<InstalledLiveGamePluginPackage> InstallAsync(Stream packageStream, string fileName, CancellationToken cancellationToken = default)
     {
         if (packageStream is null)
@@ -125,6 +161,8 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
 
             var manifest = await ReadManifestAsync(manifestEntry.Entry, cancellationToken);
             ValidateManifest(manifest);
+
+            EnsureDeclaredFilesExist(normalizedEntries, manifest);
 
             if (_reservedKeys.Contains(manifest.Key))
             {
@@ -316,6 +354,68 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
         manifest.AccentColor = string.IsNullOrWhiteSpace(manifest.AccentColor)
             ? "neutral"
             : manifest.AccentColor.Trim().ToLowerInvariant();
+        manifest.ApiRequiredPermission = string.IsNullOrWhiteSpace(manifest.ApiRequiredPermission)
+            ? "PLAYER"
+            : manifest.ApiRequiredPermission.Trim().ToUpperInvariant();
+
+        if (string.IsNullOrWhiteSpace(manifest.Backend.AssemblyPath) ||
+            string.IsNullOrWhiteSpace(manifest.Backend.TypeName))
+        {
+            throw new InvalidOperationException("manifest.json enthält keine gültige Backend-Definition.");
+        }
+
+        manifest.Backend.AssemblyPath = NormalizeRelativePath(manifest.Backend.AssemblyPath);
+        manifest.Backend.TypeName = manifest.Backend.TypeName.Trim();
+
+        if (!manifest.Backend.AssemblyPath.StartsWith("backend/", StringComparison.OrdinalIgnoreCase) ||
+            !manifest.Backend.AssemblyPath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("backend.assemblyPath muss auf eine DLL innerhalb von backend/ zeigen.");
+        }
+
+        if (string.IsNullOrWhiteSpace(manifest.Frontend.EntryPoint))
+        {
+            throw new InvalidOperationException("manifest.json enthält keinen gültigen Frontend-Einstiegspunkt.");
+        }
+
+        manifest.Frontend.EntryPoint = NormalizeRelativePath(manifest.Frontend.EntryPoint);
+        manifest.Frontend.BasePath = string.IsNullOrWhiteSpace(manifest.Frontend.BasePath)
+            ? "frontend/dist"
+            : NormalizeRelativePath(manifest.Frontend.BasePath);
+
+        if (!manifest.Frontend.EntryPoint.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase) ||
+            !manifest.Frontend.BasePath.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Frontend-Dateien müssen innerhalb von frontend/ liegen.");
+        }
+
+        manifest.DashboardTiles ??= [];
+        foreach (var tile in manifest.DashboardTiles)
+        {
+            tile.Surface = string.IsNullOrWhiteSpace(tile.Surface) ? "player" : tile.Surface.Trim().ToLowerInvariant();
+            if (tile.Surface is not ("player" or "management" or "home"))
+            {
+                throw new InvalidOperationException("dashboardTiles.surface muss 'player', 'management' oder 'home' sein.");
+            }
+
+            tile.Title = tile.Title?.Trim() ?? string.Empty;
+            tile.Description = tile.Description?.Trim() ?? string.Empty;
+            tile.Route = string.IsNullOrWhiteSpace(tile.Route) ? $"/plugins/{manifest.Key}" : tile.Route.Trim();
+            tile.IconPath = string.IsNullOrWhiteSpace(tile.IconPath) ? string.Empty : NormalizeRelativePath(tile.IconPath);
+            tile.AccentColor = string.IsNullOrWhiteSpace(tile.AccentColor) ? manifest.AccentColor : tile.AccentColor.Trim().ToLowerInvariant();
+            tile.RequiredPermission = string.IsNullOrWhiteSpace(tile.RequiredPermission) ? "PLAYER" : tile.RequiredPermission.Trim().ToUpperInvariant();
+
+            if (string.IsNullOrWhiteSpace(tile.Title))
+            {
+                throw new InvalidOperationException("dashboardTiles.title darf nicht leer sein.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(tile.IconPath) &&
+                !tile.IconPath.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("dashboardTiles.iconPath muss innerhalb von assets/ liegen.");
+            }
+        }
     }
 
     private static async Task ExtractEntriesAsync(IEnumerable<NormalizedArchiveEntry> entries, string installDirectory, CancellationToken cancellationToken)
@@ -360,7 +460,14 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
             relativePath.StartsWith("docs/", StringComparison.OrdinalIgnoreCase))
         {
             var extension = Path.GetExtension(relativePath);
-            return AllowedAssetExtensions.Contains(extension);
+            return AllowedTextAssetExtensions.Contains(extension);
+        }
+
+        if (relativePath.StartsWith("backend/", StringComparison.OrdinalIgnoreCase) ||
+            relativePath.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase))
+        {
+            var extension = Path.GetExtension(relativePath);
+            return AllowedBinaryExtensions.Contains(extension);
         }
 
         return false;
@@ -476,6 +583,13 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
             manifest.SortOrder,
             manifest.AccentColor,
             manifest.ExternalLaunchUrl,
+            manifest.ApiRequiredPermission,
+            manifest.AllowAnonymousApi,
+            manifest.Backend.AssemblyPath,
+            manifest.Backend.TypeName,
+            manifest.Frontend.EntryPoint,
+            manifest.Frontend.BasePath,
+            manifest.DashboardTiles.AsReadOnly(),
             metadata.UploadedFileName,
             metadata.InstalledAtUtc,
             metadata.Sha256);
@@ -500,4 +614,40 @@ public sealed class LiveGamePluginPackageService : ILiveGamePluginPackageService
     }
 
     private sealed record NormalizedArchiveEntry(ZipArchiveEntry Entry, string RelativePath);
+
+    private static string NormalizeRelativePath(string relativePath)
+    {
+        var normalized = relativePath.Replace('\\', '/').Trim().TrimStart('/');
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Contains("../", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("manifest.json enthält einen ungültigen relativen Pfad.");
+        }
+
+        return normalized;
+    }
+
+    private static void EnsureDeclaredFilesExist(IEnumerable<NormalizedArchiveEntry> entries, LiveGamePluginManifest manifest)
+    {
+        var paths = entries
+            .Select(entry => entry.RelativePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!paths.Contains(manifest.Backend.AssemblyPath))
+        {
+            throw new InvalidOperationException($"Die deklarierte Backend-DLL fehlt im ZIP: {manifest.Backend.AssemblyPath}");
+        }
+
+        if (!paths.Contains(manifest.Frontend.EntryPoint))
+        {
+            throw new InvalidOperationException($"Der deklarierte Frontend-Einstiegspunkt fehlt im ZIP: {manifest.Frontend.EntryPoint}");
+        }
+
+        foreach (var tile in manifest.DashboardTiles)
+        {
+            if (!string.IsNullOrWhiteSpace(tile.IconPath) && !paths.Contains(tile.IconPath))
+            {
+                throw new InvalidOperationException($"Das deklarierte Dashboard-Icon fehlt im ZIP: {tile.IconPath}");
+            }
+        }
+    }
 }

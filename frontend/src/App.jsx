@@ -12,6 +12,7 @@ import DealerBankPage from './pages/DealerBankPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminLoginPage from './pages/AdminLoginPage';
 import ManagementPage from './pages/ManagementPage';
+import PluginHostPage from './pages/PluginHostPage';
 import SignagePage from './pages/SignagePage';
 import FotoboxPage from './pages/FotoboxPage';
 
@@ -35,6 +36,7 @@ function App() {
           <Route path="dealer/bank" element={<DealerBankPage />} />
           <Route path="verwaltung" element={<ManagementPage />} />
           <Route path="fotobox" element={<FotoboxPage />} />
+          <Route path="plugins/:pluginKey/*" element={<PluginHostPage />} />
           <Route path="admin" element={<AdminLoginPage />} />
           <Route path="admin/dashboard" element={<AdminDashboard />} />
         </Route>

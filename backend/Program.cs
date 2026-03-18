@@ -111,6 +111,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<ILiveGamePluginPackageService, LiveGamePluginPackageService>();
+builder.Services.AddSingleton<ILiveGamePluginRuntimeService, LiveGamePluginRuntimeService>();
 builder.Services.AddSingleton<ILiveGameCatalogService, LiveGameCatalogService>();
 builder.Services.AddSingleton<StatsNotificationService>();
 

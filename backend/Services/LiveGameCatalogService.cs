@@ -39,12 +39,12 @@ public sealed class LiveGameCatalogService : ILiveGameCatalogService
     ];
 
     private readonly IReadOnlyList<LiveGamePluginDescriptor> _configuredPlugins;
-    private readonly ILiveGamePluginPackageService _pluginPackageService;
+    private readonly ILiveGamePluginRuntimeService _pluginRuntimeService;
 
-    public LiveGameCatalogService(IOptions<LiveGamesOptions> options, ILiveGamePluginPackageService pluginPackageService)
+    public LiveGameCatalogService(IOptions<LiveGamesOptions> options, ILiveGamePluginRuntimeService pluginRuntimeService)
     {
         _configuredPlugins = Normalize(options.Value.Plugins);
-        _pluginPackageService = pluginPackageService;
+        _pluginRuntimeService = pluginRuntimeService;
     }
 
     public IReadOnlyList<LiveGamePluginDescriptor> GetAll()
@@ -53,8 +53,9 @@ public sealed class LiveGameCatalogService : ILiveGameCatalogService
             ? _configuredPlugins.ToList()
             : FallbackPlugins.ToList();
 
-        foreach (var package in _pluginPackageService.GetInstalledPackages())
+        foreach (var runtimePlugin in _pluginRuntimeService.GetLoadedPlugins())
         {
+            var package = runtimePlugin.Package;
             plugins.RemoveAll(plugin => plugin.Key.Equals(package.Key, StringComparison.OrdinalIgnoreCase));
             plugins.Add(new LiveGamePluginDescriptor(
                 package.Key,

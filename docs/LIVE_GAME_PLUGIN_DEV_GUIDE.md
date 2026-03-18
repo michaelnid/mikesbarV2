@@ -1,77 +1,80 @@
 # Live-Game Plugin Dev Guide
 
-Dieser Guide beschreibt das ZIP-Format für Live-Game-Plugins in `mikesBAR`.
+Dieser Guide beschreibt echte Code-Plugins für `mikesBAR`.
 
-Wichtig:
-- Plugin-Pakete registrieren und beschreiben ein Live-Game.
-- Sie laden keinen beliebigen Servercode nach.
-- Die eigentliche Multiplayer-Game-Logik läuft entweder über die vorhandenen Core-APIs oder in einer externen Game-App, die per API angebunden ist.
+Ein Live-Game-Plugin besteht aus:
+- eigenem Backend-Code als kompilierte .NET-Assembly
+- eigenem Frontend-Bundle
+- einem Manifest
+- optionalen Assets und Doku
 
-## Zweck eines Plugin-Pakets
+Das Core-Backend lädt den Plugin-Code zur Laufzeit und stellt das Plugin anschließend als Spielmodul und Dashboard-Kachel bereit.
 
-Ein Plugin-Paket liefert:
-- Metadaten für den Live-Game-Katalog
-- Dealer-Auswahl und Sortierung
-- optional eine externe Start-URL
-- optionale Doku- und Asset-Dateien
+## Architektur
 
-Ein Plugin-Paket liefert nicht:
-- DLLs
-- Shell-Skripte
-- ausführbaren Backend-Code
-- Datenbankmigrationen
+Ein Plugin liefert:
+- Backend-Assembly unter `backend/`
+- Frontend-Build unter `frontend/dist/`
+- Manifest in `manifest.json`
+- optionale Dashboard-Kacheln
 
-## Erlaubte ZIP-Inhalte
+Der Core übernimmt:
+- ZIP-Upload im Admin-Menü
+- Validierung
+- sichere Extraktion
+- Assembly-Laden
+- API-Dispatch an das Plugin
+- Hosting der Plugin-Frontend-Dateien
+- Deinstallation
 
-Erlaubt sind nur diese Dateien und Ordner:
-- `manifest.json`
-- `README.md`
-- `assets/...`
-- `docs/...`
+## ZIP-Struktur
 
-Erlaubte Dateiendungen in `assets/` und `docs/`:
-- `.json`
-- `.md`
-- `.txt`
-- `.svg`
-- `.png`
-- `.jpg`
-- `.jpeg`
-- `.webp`
-- `.gif`
-
-Alles andere wird beim Upload abgelehnt.
-
-## Empfohlene ZIP-Struktur
-
-Empfohlen ist diese Struktur direkt auf ZIP-Ebene:
-
-```text
-my-plugin/
-├── manifest.json
-├── README.md
-├── assets/
-│   └── icon.svg
-└── docs/
-    └── integration.md
-```
-
-Im ZIP soll idealerweise **kein zusätzlicher äußerer Sammelordner** enthalten sein.
-
-Empfohlenes ZIP-Ergebnis:
+Pflichtstruktur:
 
 ```text
 manifest.json
 README.md
-assets/icon.svg
-docs/integration.md
+backend/
+  MyPlugin.dll
+  MyPlugin.deps.json
+  MyPlugin.runtimeconfig.json
+frontend/
+  dist/
+    index.html
+    assets/
+assets/
+  icon.svg
+docs/
+  integration.md
 ```
 
-Der Installer toleriert zusätzlich auch einen einzelnen äußeren Ordner, aber das empfohlene Format ist ohne Wrapper-Ordner.
+Ein einzelner äußerer Wrapper-Ordner wird toleriert, empfohlen ist aber die Struktur direkt auf ZIP-Ebene.
+
+## Erlaubte Inhalte
+
+Erlaubte Root-Dateien:
+- `manifest.json`
+- `README.md`
+
+Erlaubte Ordner:
+- `backend/`
+- `frontend/`
+- `assets/`
+- `docs/`
+
+Typische erlaubte Dateiendungen:
+- Backend: `.dll`, `.deps.json`, `.runtimeconfig.json`, `.pdb`
+- Frontend: `.html`, `.js`, `.css`, `.map`, `.json`, Bilder, Fonts
+- Assets/Doku: `.md`, `.txt`, `.json`, `.svg`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`
+
+Nicht erlaubt:
+- Shell-Skripte
+- EXE-Dateien
+- private Schlüssel
+- Secrets
+- beliebige Binärdaten außerhalb der erlaubten Ordner
 
 ## Manifest
-
-`manifest.json` ist Pflicht.
 
 Beispiel:
 
@@ -82,16 +85,38 @@ Beispiel:
   "key": "roulette_pro",
   "name": "Roulette Pro",
   "version": "1.0.0",
-  "description": "Externes Live-Roulette mit eigener Multiplayer-Logik.",
-  "clientRoute": "/dealer/players",
-  "launchMode": "external",
+  "description": "Live-Roulette als installierbares Code-Plugin.",
+  "clientRoute": "/plugins/roulette_pro",
+  "launchMode": "direct",
   "dealerSelectable": true,
   "requiresPlayerSession": true,
   "defaultEnabled": true,
   "sortOrder": 100,
   "accentColor": "red",
   "developer": "Your Studio",
-  "externalLaunchUrl": "https://games.example.com/roulette-pro"
+  "externalLaunchUrl": null,
+  "apiRequiredPermission": "PLAYER",
+  "allowAnonymousApi": false,
+  "backend": {
+    "assemblyPath": "backend/RoulettePro.Plugin.dll",
+    "typeName": "RoulettePro.Plugin.RouletteProPlugin"
+  },
+  "frontend": {
+    "entryPoint": "frontend/dist/index.html",
+    "basePath": "frontend/dist"
+  },
+  "dashboardTiles": [
+    {
+      "surface": "player",
+      "title": "Roulette Pro",
+      "description": "Installiertes Live-Roulette",
+      "route": "/plugins/roulette_pro",
+      "iconPath": "assets/icon.svg",
+      "accentColor": "red",
+      "requiredPermission": "PLAYER",
+      "visibleByDefault": true
+    }
+  ]
 }
 ```
 
@@ -99,85 +124,194 @@ Beispiel:
 
 Pflicht:
 - `packageType`
-  Wert muss `mikesbar-livegame` sein.
+  Muss `mikesbar-livegame` sein.
 - `schemaVersion`
-  Aktuell nur `1`.
+  Aktuell `1`.
 - `key`
   Kleinbuchstaben, Zahlen, `_` und `-`, 2 bis 64 Zeichen.
 - `name`
 - `version`
+- `backend.assemblyPath`
+- `backend.typeName`
+- `frontend.entryPoint`
 
-Optional:
+Wichtige optionale Felder:
 - `description`
 - `clientRoute`
-  Für interne Starts. Standard ist `/dealer/players`.
 - `launchMode`
   Erlaubt: `table`, `direct`, `external`
+- `externalLaunchUrl`
+  Nur für `external`
 - `dealerSelectable`
 - `requiresPlayerSession`
 - `defaultEnabled`
 - `sortOrder`
 - `accentColor`
 - `developer`
-- `externalLaunchUrl`
-  Pflicht, wenn `launchMode` auf `external` steht.
+- `apiRequiredPermission`
+  Typisch: `PLAYER`, `DEALER`, `ADMIN`
+- `allowAnonymousApi`
+- `dashboardTiles`
 
-## Launch-Modi
+## Backend-Plugin-Interface
 
-`table`
-- Nutzung über den normalen Dealer-/Tisch-Flow
-- Standardroute meist `/dealer/players`
+Ein Backend-Plugin muss `ILiveGamePlugin` aus dem SDK implementieren:
 
-`direct`
-- Direkter Einstieg ohne aktive Tischsession
-- geeignet für Kasse oder Sondermodule
+```csharp
+using Microsoft.AspNetCore.Http;
+using Mikesbar.PluginSdk.LiveGames;
 
-`external`
-- Startet eine externe URL
-- geeignet für separat entwickelte Live-Multiplayer-Apps
-- `externalLaunchUrl` muss eine vollständige `http`- oder `https`-URL sein
+namespace RoulettePro.Plugin;
+
+public sealed class RouletteProPlugin : ILiveGamePlugin
+{
+    public string Key => "roulette_pro";
+
+    public async Task HandleRequestAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
+    {
+        var path = (httpContext.Items["LiveGamePluginPath"] as string ?? string.Empty).Trim('/');
+
+        if (httpContext.Request.Method == "GET" && path == "health")
+        {
+            httpContext.Response.ContentType = "application/json";
+            await httpContext.Response.WriteAsJsonAsync(new { status = "ok", plugin = Key }, cancellationToken);
+            return;
+        }
+
+        httpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+        await httpContext.Response.WriteAsJsonAsync(new { message = "Plugin route not found" }, cancellationToken);
+    }
+}
+```
+
+Das Plugin bekommt den normalen `HttpContext` und kann über `httpContext.RequestServices` auf Core-Dienste zugreifen.
+
+Zusätzliche Laufzeitwerte:
+- `HttpContext.Items["LiveGamePlugin"]`
+- `HttpContext.Items["LiveGamePluginPath"]`
+
+## Frontend
+
+Das Plugin-Frontend wird vom Core unter `/plugin-runtime/{pluginKey}/...` ausgeliefert.
+
+Der Core öffnet Plugin-Frontends unter:
+
+```text
+/plugins/{pluginKey}
+```
+
+Das Frontend wird dabei in einem Host-Container geladen. Es bekommt Query-Parameter wie:
+- `token`
+- `userId`
+- `pluginKey`
+- `apiBaseUrl`
+
+Beispiel:
+
+```text
+https://example.com/plugin-runtime/roulette_pro/index.html?token=...&userId=12&pluginKey=roulette_pro&apiBaseUrl=https://example.com/api/plugin-runtime/roulette_pro
+```
+
+## API-Aufruf aus dem Plugin-Frontend
+
+Plugin-Frontend ruft das eigene Backend über:
+
+```text
+/api/plugin-runtime/{pluginKey}/...
+```
+
+Beispiel:
+
+```text
+GET /api/plugin-runtime/roulette_pro/health
+POST /api/plugin-runtime/roulette_pro/place-bet
+```
+
+Diese Requests werden an `HandleRequestAsync(...)` des Plugins weitergereicht.
+
+## Dashboard-Kacheln
+
+Plugins können Kacheln für diese Bereiche registrieren:
+- `player`
+- `management`
+- `home`
+
+`player`
+- erscheint im Spieler-Dashboard
+
+`management`
+- erscheint in der Verwaltungsansicht
+
+`home`
+- reserviert für spätere Erweiterungen
 
 ## ZIP bauen
 
-Empfohlener Weg mit dem Repo-Helfer:
+Empfohlener Weg:
 
 ```bash
 bash scripts/package-live-plugin.sh /pfad/zum/plugin-ordner
 ```
 
-Manuell mit `zip`:
+Das Skript erwartet im Plugin-Ordner bereits:
+- `manifest.json`
+- `backend/`
+- `frontend/dist/`
+
+Optional:
+- `README.md`
+- `assets/`
+- `docs/`
+
+## Beispiel für Build + Packaging
+
+Backend publizieren:
 
 ```bash
-cd /pfad/zum/plugin-ordner
-zip -r ../roulette-pro-1.0.0.zip manifest.json README.md assets docs -x "*.DS_Store" "__MACOSX/*"
+dotnet publish ./src/RoulettePro.Plugin/RoulettePro.Plugin.csproj -c Release -o ./plugin-output/backend
 ```
 
-Wichtig:
-- `manifest.json` muss im ZIP enthalten sein
-- keine Build-Artefakte mitschicken
-- keine Secrets, Tokens, Zertifikate oder Zugangsdaten mitschicken
+Frontend bauen:
+
+```bash
+cd ./frontend
+npm ci
+npm run build
+mkdir -p ../plugin-output/frontend
+cp -R dist ../plugin-output/frontend/
+```
+
+Danach Manifest und Assets in `plugin-output/` ablegen und ZIP bauen:
+
+```bash
+bash scripts/package-live-plugin.sh ./plugin-output ./roulette-pro-1.0.0.zip
+```
 
 ## Installation im Admin-Menü
 
-Im Admin-Dashboard unter `System Features`:
+Im Admin-Dashboard unter `Plugins & Features`:
 - ZIP auswählen
 - hochladen
-- Paket wird validiert und installiert
-- danach erscheint das Spiel im Live-Game-Katalog
+- Plugin wird validiert
+- Backend-Code wird beim nächsten Zugriff geladen
+- Frontend und Dashboard-Kacheln stehen danach bereit
 
 ## Deinstallation
 
 Im Admin-Dashboard:
-- installiertes Plugin-Paket auswählen
+- Paket auswählen
 - entfernen
 
 Dabei werden:
-- das Paket aus dem Plugin-Speicher gelöscht
-- der Katalogeintrag entfernt
+- Installationsdateien gelöscht
+- Katalogeintrag entfernt
 - aktive Dealer-Zuordnungen für dieses Plugin beendet
+- offene Tischsessions für dieses Plugin geschlossen
 
-## Beispiel-Datei
+## Beispiel-Dateien
 
-Eine Beispiel-`manifest.json` liegt unter:
+Beispiel-Manifest:
+- `docs/examples/live-game-plugin/manifest.json`
 
-`docs/examples/live-game-plugin/manifest.json`
+Beispiel-Backend:
+- `docs/examples/live-game-plugin/backend/SamplePlugin.cs`
