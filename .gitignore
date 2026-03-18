@@ -4,6 +4,8 @@ AGENTS.md
 
 backend/bin/
 backend/obj/
+plugin-sdk/bin/
+plugin-sdk/obj/
 
 frontend/node_modules/
 frontend/dist/
