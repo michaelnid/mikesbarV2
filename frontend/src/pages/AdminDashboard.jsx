@@ -70,6 +70,13 @@ const Menu = ({ onSetView, onLoadUsers, onLoadGameSettings, onShowSslInfo, navig
                 color="from-green-600/20 to-emerald-600/10"
                 onClick={onShowSslInfo}
             />
+            <MenuButton
+                icon="🏠"
+                label="Hauptmenü"
+                description="Zurück zur Übersicht"
+                color="from-neutral-600/20 to-neutral-700/10"
+                onClick={() => navigate('/verwaltung')}
+            />
         </div>
     </div>
 );

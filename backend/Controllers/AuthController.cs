@@ -104,6 +104,57 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Switch an existing user session to a dealer session without re-entering credentials.
+    /// Requires the user to have the DEALER permission.
+    /// </summary>
+    [HttpPost("dealer-session")]
+    [Authorize]
+    public async Task<IActionResult> CreateDealerSession()
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var actorType = User.FindFirst("actor_type")?.Value;
+
+        if (actorType == "dealer_profile" || string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            return BadRequest(new { message = "Invalid token type" });
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null || !user.IsActive)
+            return Unauthorized(new { message = "User not found or inactive" });
+
+        if (!user.HasPermission("DEALER"))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Kein Dealer-Zugang für dieses Konto" });
+
+        var dealer = await EnsureDealerProfileAsync(user);
+
+        dealer.SessionToken = Guid.NewGuid().ToString("N").Substring(0, 20);
+        dealer.LastActivityAt = DateTime.UtcNow;
+
+        var activeSessions = await _context.TableSessions
+            .Where(s => s.DealerId == dealer.Id && s.LeftAt == null)
+            .ToListAsync();
+
+        foreach (var session in activeSessions)
+            session.LeftAt = DateTime.UtcNow;
+
+        dealer.CurrentGame = null;
+        await _context.SaveChangesAsync();
+
+        var token = _authService.GenerateToken(dealer);
+        return Ok(new
+        {
+            token,
+            dealer = new
+            {
+                dealer.Id,
+                dealer.Name,
+                dealer.CurrentGame,
+                dealer.LastActivityAt,
+                dealer.UserId
+            }
+        });
+    }
+
+    /// <summary>
     /// Setup endpoint - DISABLED for security
     /// Manual database seeding required for initial setup
     /// </summary>

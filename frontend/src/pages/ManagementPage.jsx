@@ -53,8 +53,25 @@ export default function ManagementPage() {
             .catch(() => setPluginTiles([]));
     }, [navigate, token]);
 
+    const [switchError, setSwitchError] = useState('');
+    const [switching, setSwitching] = useState(false);
     const showDealerEntry = canSeeDealerTile(user);
     const showAdminEntry = canSeeAdminTile(user);
+
+    const handleDealerSwitch = async () => {
+        setSwitchError('');
+        setSwitching(true);
+        try {
+            const data = await api.createDealerSession(token);
+            localStorage.setItem('dealer_token', data.token);
+            localStorage.setItem('dealer', JSON.stringify(data.dealer));
+            navigate('/dealer/select-game');
+        } catch (err) {
+            setSwitchError(err.message);
+        } finally {
+            setSwitching(false);
+        }
+    };
 
     useEffect(() => {
         if (user && !showDealerEntry && !showAdminEntry) {
@@ -83,12 +100,15 @@ export default function ManagementPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {showDealerEntry && (
                             <ManagementCard
-                                title="Dealer Core"
+                                title={switching ? 'Wird geladen...' : 'Dealer Core'}
                                 description="Tische, Spieler-Sessions und Plugin-Auswahl"
                                 accentClass="bg-gradient-to-br from-emerald-500/20 to-emerald-700/10"
                                 icon="🃏"
-                                onClick={() => navigate('/dealer')}
+                                onClick={handleDealerSwitch}
                             />
+                        )}
+                        {switchError && (
+                            <p className="text-red-500 text-sm col-span-full text-center">{switchError}</p>
                         )}
 
                         {showAdminEntry && (

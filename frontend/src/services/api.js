@@ -94,6 +94,18 @@ export const api = {
         return await response.json();
     },
 
+    createDealerSession: async (token) => {
+        const response = await request(`${API_BASE_URL}/auth/dealer-session`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Dealer session failed');
+        }
+        return await response.json();
+    },
+
     getMe: async (token) => {
         const response = await request(`${API_BASE_URL}/users/me`, {
             headers: { 'Authorization': `Bearer ${token}` }

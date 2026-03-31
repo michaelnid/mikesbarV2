@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getDefaultApiBaseUrl } from '../services/api';
+import { hasPermission } from '../utils/permissions';
 
 export default function DealerLoginPage() {
     const navigate = useNavigate();
@@ -11,6 +12,21 @@ export default function DealerLoginPage() {
     const [loading, setLoading] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [apiUrl, setApiUrl] = useState(localStorage.getItem('custom_api_url') || defaultApiUrl);
+
+    // Auto-switch: if already logged in with DEALER permission, skip login
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (token && user && hasPermission(user, 'DEALER')) {
+            api.createDealerSession(token).then((data) => {
+                localStorage.setItem('dealer_token', data.token);
+                localStorage.setItem('dealer', JSON.stringify(data.dealer));
+                navigate('/dealer/select-game');
+            }).catch(() => {
+                // Auto-switch failed, show login form
+            });
+        }
+    }, [navigate]);
 
     const handleSaveSettings = () => {
         localStorage.setItem('custom_api_url', apiUrl);
