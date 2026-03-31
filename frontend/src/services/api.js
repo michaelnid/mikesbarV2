@@ -26,19 +26,30 @@ const request = async (url, options = {}) => {
         const response = await fetch(url, options);
 
         // Security: Single Session Enforcement
+        // Only clear the specific token that was actually rejected.
         if (response.status === 401) {
-            const data = await response.clone().json().catch(() => ({}));
-            // Only redirect if it's explicitly a session expiry or if we are unauthorized on a protected route
-            // For now, any 401 on the API implies the token is bad.
-            // Avoid loops on login page or public endpoints if possible, but 401 usually means "Invalid Token".
-            console.warn("Unauthorized (401) - clearing session...", data.message);
+            const authHeader = options.headers?.Authorization || options.headers?.authorization || '';
+            const usedToken = authHeader.replace('Bearer ', '');
 
-            if (localStorage.getItem('token')) {
+            if (!usedToken) return response;
+
+            const playerToken = localStorage.getItem('token');
+            const dealerToken = localStorage.getItem('dealer_token');
+
+            if (usedToken === playerToken) {
+                console.warn('401 - Player/Admin session expired');
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
-                // Force reload to clear React state and redirect to /
                 window.location.href = '/';
-                return;
+                return response;
+            }
+
+            if (usedToken === dealerToken) {
+                console.warn('401 - Dealer session expired');
+                localStorage.removeItem('dealer_token');
+                localStorage.removeItem('dealer');
+                window.location.href = '/dealer';
+                return response;
             }
         }
 
