@@ -71,17 +71,17 @@ banner() {
     local width=52
     local pad=$(( (width - ${#title} - 2) / 2 ))
     local line
-    line="$(printf '%*s' "$width" '' | tr ' ' '─')"
+    line="$(printf '%*s' "$width" '' | tr ' ' '-')"
 
     printf '\n%b' "$C_CYAN"
-    printf '  ┌%s┐\n' "$line"
-    printf '  │%*s%b %s %b%*s│\n' "$pad" '' "$C_BOLD$C_WHITE" "$title" "$C_RESET$C_CYAN" "$((width - pad - ${#title} - 2))" ''
-    printf '  └%s┘\n' "$line"
+    printf '  +%s+\n' "$line"
+    printf '  |%*s%b %s %b%*s|\n' "$pad" '' "$C_BOLD$C_WHITE" "$title" "$C_RESET$C_CYAN" "$((width - pad - ${#title} - 2))" ''
+    printf '  +%s+\n' "$line"
     printf '%b\n' "$C_RESET"
 }
 
 print_line() {
-    printf '%b  %s%b\n' "$C_DIM" "$(printf '%*s' 52 '' | tr ' ' '─')" "$C_RESET"
+    printf '%b  %s%b\n' "$C_DIM" "$(printf '%*s' 52 '' | tr ' ' '-')" "$C_RESET"
 }
 
 # ── Systemvoraussetzungen ──────────────────────────────────────────────
@@ -582,13 +582,13 @@ EOF
 build_and_publish_backend() {
     chown -R "$APP_USER:$APP_GROUP" "$APP_ROOT" "$PUBLISH_ROOT"
     log_info "dotnet restore + publish ..."
-    su -s /bin/bash -c "cd '$APP_ROOT/backend' && dotnet restore -v quiet && dotnet publish -c Release -o '$PUBLISH_ROOT' -v quiet" "$APP_USER"
+    su -s /bin/bash -c "cd '$APP_ROOT/backend' && dotnet restore -v quiet && dotnet publish -c Release -o '$PUBLISH_ROOT' -v quiet /nowarn:CS8618" "$APP_USER"
 }
 
 build_frontend() {
     chown -R "$APP_USER:$APP_GROUP" "$APP_ROOT"
     log_info "npm ci + build ..."
-    su -s /bin/bash -c "cd '$APP_ROOT/frontend' && npm ci --loglevel=warn && npm run build" "$APP_USER"
+    su -s /bin/bash -c "cd '$APP_ROOT/frontend' && npm ci --loglevel=warn --no-audit --no-fund && npm run build 2>&1 | grep -v '__PURE__'" "$APP_USER"
 }
 
 deploy_frontend_site() {
