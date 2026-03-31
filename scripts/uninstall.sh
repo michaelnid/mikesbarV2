@@ -27,6 +27,8 @@ done
 
 require_root
 
+banner "mikesbar  -  Deinstallation"
+
 if [ -f "$INSTALL_CONFIG_PATH" ]; then
     load_install_config
 else
@@ -41,23 +43,28 @@ if [ "$PURGE_CERT" != "true" ] && [ -n "${DOMAIN:-}" ] && prompt_yes_no "Soll au
     PURGE_CERT="true"
 fi
 
+log_info "Stoppe und deaktiviere Dienste ..."
 systemctl stop "$SYSTEMD_SERVICE_NAME" 2>/dev/null || true
 systemctl disable "$SYSTEMD_SERVICE_NAME" 2>/dev/null || true
 rm -f "$SYSTEMD_SERVICE_PATH"
 systemctl daemon-reload
 
+log_info "Entferne nginx-Konfiguration ..."
 rm -f "$NGINX_SITE_LINK" "$NGINX_SITE_PATH"
 nginx -t >/dev/null 2>&1 && systemctl reload nginx || true
 
 rm -f /usr/local/bin/mikesbar-update /usr/local/bin/mikesbar-uninstall
 
 if [ "$PURGE_CERT" = "true" ] && [ -n "${DOMAIN:-}" ]; then
+    log_info "Loesche SSL-Zertifikat fuer ${DOMAIN} ..."
     certbot delete --non-interactive --cert-name "$DOMAIN" || log_warn "Zertifikat fuer ${DOMAIN} konnte nicht entfernt werden."
 fi
 
+log_info "Entferne Anwendungsdateien ..."
 rm -rf "$APP_ROOT" "$PUBLISH_ROOT" "$SITE_ROOT"
 
 if [ "$PURGE_DATA" = "true" ]; then
+    log_info "Loesche Datenbank und Uploads ..."
     rm -rf "$DATA_ROOT"
     if [ -n "${DB_NAME:-}" ] && [ -n "${DB_USER:-}" ]; then
         mysql --protocol=socket -uroot <<SQL
@@ -72,4 +79,8 @@ fi
 
 rm -rf "$CONFIG_DIR"
 
-printf 'Deinstallation abgeschlossen.\n'
+printf '\n'
+print_line
+printf '%b  Deinstallation abgeschlossen.%b\n' "$C_BOLD$C_GREEN" "$C_RESET"
+print_line
+printf '\n'

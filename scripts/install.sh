@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 REPO_URL="${REPO_URL:-}"
 REPO_BRANCH="${REPO_BRANCH:-$DEFAULT_BRANCH}"
-DOMAIN_INPUT="${DOMAIN:-}"
+DOMAIN="${DOMAIN:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PIN="${ADMIN_PIN:-}"
 DB_NAME="${DB_NAME:-$DEFAULT_DB_NAME}"
@@ -28,7 +28,7 @@ while [ $# -gt 0 ]; do
             shift 2
             ;;
         --domain)
-            DOMAIN_INPUT="${2:-}"
+            DOMAIN="${2:-}"
             shift 2
             ;;
         --admin-user)
@@ -68,10 +68,19 @@ done
 require_root
 require_apt
 
-log_info "Installiere Systemabhaengigkeiten."
+banner "mikesbar  -  Installation"
+init_steps 7
+
+# ── 1. Systemabhaengigkeiten ─────────────────────────────────────────
+
+step "Systemabhaengigkeiten installieren"
 ensure_runtime_packages
 ensure_services_enabled
 ensure_app_user_and_dirs
+
+# ── 2. Konfiguration erfragen ────────────────────────────────────────
+
+step "Konfiguration erfragen"
 
 if [ -z "$REPO_URL" ] && [ -d "${ROOT_DIR}/.git" ]; then
     REPO_URL="$(git -C "$ROOT_DIR" config --get remote.origin.url || true)"
@@ -83,24 +92,24 @@ fi
 
 REPO_BRANCH="$(prompt_value "Git-Branch fuer Deployment" "$REPO_BRANCH" false)"
 
-if [ -z "$DOMAIN_INPUT" ]; then
-    DOMAIN_INPUT="$(prompt_value "Domain fuer HTTPS (leer lassen fuer HTTP ueber Server-IP)" "" true)"
+if [ -z "$DOMAIN" ]; then
+    DOMAIN="$(prompt_value "Domain fuer HTTPS (leer lassen fuer HTTP ueber Server-IP)" "" true)"
 fi
 
-DOMAIN_INPUT="$(sanitize_domain "$DOMAIN_INPUT")"
-if is_ipv4 "$DOMAIN_INPUT"; then
-    log_warn "Eine IP-Adresse kann kein Let's-Encrypt-Zertifikat erhalten. SSL wird fuer diese Eingabe deaktiviert."
-    DOMAIN_INPUT=""
+DOMAIN="$(sanitize_domain "$DOMAIN")"
+if is_ipv4 "$DOMAIN"; then
+    log_warn "Eine IP-Adresse kann kein Let's-Encrypt-Zertifikat erhalten. SSL wird deaktiviert."
+    DOMAIN=""
 fi
 
 if [ "$SKIP_SSL" = "true" ]; then
-    DOMAIN_INPUT=""
+    DOMAIN=""
 fi
 
 SERVER_IP="$(detect_server_ip)"
-PUBLIC_HOST="${DOMAIN_INPUT:-$SERVER_IP}"
+PUBLIC_HOST="${DOMAIN:-$SERVER_IP}"
 SSL_ENABLED="false"
-if [ -n "$DOMAIN_INPUT" ]; then
+if [ -n "$DOMAIN" ]; then
     SSL_ENABLED="true"
 fi
 
@@ -109,7 +118,7 @@ require_match "$ADMIN_USERNAME" "Admin-Benutzername" '^[A-Za-z0-9._-]{3,50}$'
 
 if [ -z "$ADMIN_PIN" ]; then
     ADMIN_PIN="$(random_digits 6)"
-    log_info "Es wurde automatisch eine zufaellige 6-stellige Admin-PIN erzeugt."
+    log_info "Zufaellige 6-stellige Admin-PIN erzeugt."
 fi
 require_match "$ADMIN_PIN" "Admin-PIN" '^[0-9]{6}$'
 
@@ -131,46 +140,61 @@ if [ -z "$JWT_SECRET" ]; then
     JWT_SECRET="$(random_hex 32)"
 fi
 
-log_info "Synchronisiere Repository nach ${APP_ROOT}."
+# ── 3. Repository synchronisieren ────────────────────────────────────
+
+step "Repository synchronisieren"
 git_sync_repo "$REPO_URL" "$REPO_BRANCH"
 
-log_info "Richte Datenbank ein."
+# ── 4. Datenbank einrichten ──────────────────────────────────────────
+
+step "Datenbank einrichten"
 ensure_database_and_user "$DB_NAME" "$DB_USER" "$DB_PASSWORD"
 apply_database_schema "$DB_NAME"
 upsert_admin_user "$DB_NAME" "$ADMIN_USERNAME" "$ADMIN_PIN"
 
-PUBLIC_ORIGIN="$(build_public_origin "$PUBLIC_HOST" "$SSL_ENABLED")"
+# ── 5. Konfigurationsdateien schreiben ───────────────────────────────
 
-log_info "Schreibe Laufzeitkonfiguration."
-write_install_config "$REPO_URL" "$REPO_BRANCH" "$PUBLIC_HOST" "$DOMAIN_INPUT" "$SSL_ENABLED" "$DB_NAME" "$DB_USER" "$DB_PASSWORD" "$ADMIN_USERNAME"
+step "Konfiguration schreiben"
+PUBLIC_ORIGIN="$(build_public_origin "$PUBLIC_HOST" "$SSL_ENABLED")"
+write_install_config "$REPO_URL" "$REPO_BRANCH" "$PUBLIC_HOST" "$DOMAIN" "$SSL_ENABLED" "$DB_NAME" "$DB_USER" "$DB_PASSWORD" "$ADMIN_USERNAME"
 write_runtime_env "$DB_NAME" "$DB_USER" "$DB_PASSWORD" "$PUBLIC_ORIGIN" "$JWT_SECRET"
 
-log_info "Baue Backend und Frontend."
+# ── 6. Backend & Frontend bauen ──────────────────────────────────────
+
+step "Backend & Frontend bauen"
 build_and_publish_backend
 build_frontend
 deploy_frontend_site
 
+# ── 7. Dienste & SSL einrichten ──────────────────────────────────────
+
+step "Dienste konfigurieren & starten"
+
 PHP_FPM_SOCKET="$(detect_php_fpm_socket)"
 [ -n "$PHP_FPM_SOCKET" ] || die "PHP-FPM-Socket wurde nicht gefunden."
 
-log_info "Erzeuge systemd- und nginx-Konfiguration."
 write_systemd_service
-write_nginx_site "${DOMAIN_INPUT:-_}" "$PHP_FPM_SOCKET"
+write_nginx_site "${DOMAIN:-_}" "$PHP_FPM_SOCKET" "false" ""
 ensure_management_symlinks
 reload_systemd_and_services
 
 if [ "$SSL_ENABLED" = "true" ]; then
-    log_info "Fordere Let's-Encrypt-Zertifikat fuer ${DOMAIN_INPUT} an."
-    obtain_ssl_certificate "$DOMAIN_INPUT"
-    PUBLIC_ORIGIN="$(build_public_origin "$DOMAIN_INPUT" "true")"
+    log_info "Fordere Let's-Encrypt-Zertifikat fuer ${DOMAIN} an ..."
+    obtain_ssl_certificate "$DOMAIN"
+
+    PUBLIC_ORIGIN="$(build_public_origin "$DOMAIN" "true")"
     write_runtime_env "$DB_NAME" "$DB_USER" "$DB_PASSWORD" "$PUBLIC_ORIGIN" "$JWT_SECRET"
-    write_nginx_site "${DOMAIN_INPUT}" "$PHP_FPM_SOCKET"
-    nginx -t
+    write_nginx_site "$DOMAIN" "$PHP_FPM_SOCKET" "true" "$DOMAIN"
+
+    nginx -t >/dev/null 2>&1 || die "nginx-Konfiguration nach SSL ist fehlerhaft."
     systemctl reload nginx
     systemctl restart "$SYSTEMD_SERVICE_NAME"
+    log_info "HTTPS aktiv fuer ${DOMAIN}."
 else
     log_warn "Keine Domain gesetzt. Installation bleibt auf HTTP ueber ${SERVER_IP}."
 fi
+
+# ── Fertig ───────────────────────────────────────────────────────────
 
 print_access_summary "$PUBLIC_ORIGIN"
 print_admin_credentials "$ADMIN_USERNAME" "$ADMIN_PIN"
